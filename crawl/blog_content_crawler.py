@@ -82,6 +82,24 @@ def crawl_blog_contents(urls, titles=None, dates=None):
     return df
 
 
+def clean_blog_content(content):
+    """블로그 컨텐츠 정제"""
+    # 불필요한 태그/기호 제거
+    content = re.sub(r"Previous image|Next image|​|\t", "", content)
+
+    # 연속된 공백/줄바꿈 정리
+    content = re.sub(r"\n\s*\n", "\n", content)
+    content = re.sub(r" +", " ", content)
+
+    # 기본 정보 추출 및 구조화
+    place_info = {"name": "", "address": "", "hours": "", "menu": [], "review": ""}
+
+    # 정보 파싱 로직 구현
+    # ...
+
+    return place_info
+
+
 if __name__ == "__main__":
     # naver_blog_links.txt 파일에서 URL 읽어오기
     urls = read_urls_from_file("naver_blog_links.txt")

@@ -8,6 +8,8 @@ import urllib.parse
 import requests
 from bs4 import BeautifulSoup
 import time
+from tqdm import tqdm
+import re
 
 
 def crawl_blog_content(blog_url):
@@ -48,6 +50,46 @@ def crawl_blog_content(blog_url):
         return f"크롤링 중 오류 발생: {e}"
 
 
+def clean_blog_content(text):
+    """블로그 컨텐츠 정제"""
+    # 불필요한 태그/기호 제거
+    text = re.sub(r"Previous image|Next image|​", "", text)
+
+    # 연속된 탭을 하나의 공백으로 변경
+    text = re.sub(r"\t+", " ", text)
+
+    # 연속된 공백 정리
+    text = re.sub(r" +", " ", text)
+
+    # 앞뒤 공백 제거
+    text = text.strip()
+
+    # 기본 정보 추출 시도
+    place_info = {"name": "", "address": "", "hours": "", "menu": [], "review": text}
+
+    # 주소 추출 시도 (서울 ... 형식)
+    address_match = re.search(
+        r"서울\s+\S+구\s+\S+[로길]\s*\d+(?:-\d+)?(?:\s+\S+)?", text
+    )
+    if address_match:
+        place_info["address"] = address_match.group()
+
+    # 영업시간 추출 시도
+    hours_match = re.search(r"(?:영업시간|운영시간)\s*:?\s*([^\n]+)", text)
+    if hours_match:
+        place_info["hours"] = hours_match.group(1).strip()
+
+    # 가게명 추출 시도 (주소 앞에 있는 이름)
+    if place_info["address"]:
+        name_match = re.search(
+            r"([^\n]+)(?=.*?" + re.escape(place_info["address"]) + ")", text
+        )
+        if name_match:
+            place_info["name"] = name_match.group(1).strip()
+
+    return place_info
+
+
 def main():
     # 결과를 저장할 디렉토리 생성
     output_dir = "crawled_contents"
@@ -59,21 +101,20 @@ def main():
     output_file = os.path.join(output_dir, f"blog_contents_{today}.txt")
 
     # naver_blog_links.txt 파일에서 URL 읽기
-    with open("junggu_blog_links.txt", "r", encoding="utf-8") as f:
+    with open("search_500.txt", "r", encoding="utf-8") as f:
         urls = f.readlines()
 
     # 결과 파일 생성
     with open(output_file, "w", encoding="utf-8") as f:
-        # 각 URL에 대해 크롤링 수행
-        for i, url in enumerate(urls, 1):
+        # tqdm으로 진행률 표시 추가
+        for url in tqdm(urls, desc="블로그 크롤링 진행률", unit="개"):
             url = url.strip()
             if url:  # 빈 줄 무시
-                print(f"크롤링 중... ({i}/{len(urls)}): {url}")
                 content = crawl_blog_content(url)
-
-                # URL과 컨텐츠를 한 줄로 저장
-                f.write(f"{url}\t{content}\n")
-                print(f"컨텐츠 추가 완료: {url}")
+                cleaned_content = clean_blog_content(content)
+                # JSON 형식으로 저장
+                output = {"url": url, "content": cleaned_content}
+                f.write(json.dumps(output, ensure_ascii=False) + "\n")
 
         print(f"\n모든 컨텐츠가 다음 파일에 저장되었습니다: {output_file}")
 
