@@ -61,10 +61,9 @@ INSTALLED_APPS = [
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        ),
-    'EXCEPTION_HANDLER': (
-        'account.utils.custom_exception_handler'
-        ),
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'EXCEPTION_HANDLER': 'account.utils.custom_exception_handler',
 }
 
 SIMPLE_JWT = {
@@ -74,6 +73,11 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "USER_ID_FIELD": "username",  # PK가 username일 때 필수
     "USER_ID_CLAIM": "username",  # 토큰에 들어갈 필드명 (선택)
+    "AUTH_COOKIE": "access_token",
+    "AUTH_COOKIE_SECURE": False,
+    "AUTH_COOKIE_HTTP_ONLY": True,
+    "AUTH_COOKIE_PATH": "/",
+    "AUTH_COOKIE_SAMESITE": "Lax",
 }
 
 MIDDLEWARE = [
@@ -92,7 +96,9 @@ ROOT_URLCONF = "vacation.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [
+            BASE_DIR / 'templates',
+        ],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -177,3 +183,12 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+# 로그인 관련 설정 추가
+LOGIN_URL = '/api/account/auth/'
+LOGIN_REDIRECT_URL = '/chat/'
+
+# 세션 설정 추가
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_AGE = 86400  # 24시간
+SESSION_COOKIE_SECURE = False  # HTTPS 사용 시 True로 변경
