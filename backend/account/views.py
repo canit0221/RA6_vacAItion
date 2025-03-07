@@ -5,9 +5,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
 from django.shortcuts import get_object_or_404
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, login
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.exceptions import TokenError
+from django.shortcuts import render
 
 
 # 회원가입
@@ -40,37 +41,31 @@ class CreateUserView(APIView):
 class LoginView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-
+        
         try:
             if serializer.is_valid():
-                user = serializer.user  # 로그인 성공 시 유저 객체 접근 가능
-                return Response(
-                    {
-                        "success": True,
-                        "message": "로그인 되었습니다.",
-                        "username": user.username,
-                        "access_token": serializer.validated_data['access'],
-                        "refresh_token": serializer.validated_data['refresh'],
-                    },
-                    status=status.HTTP_200_OK
-                )
+                user = serializer.user  # 로그인 성공 시 유저 객체 접근
+                login(request, user)    # 세션 로그인 수행
                 
-        except Exception:
-            return Response(
-                {
-                    "success": False,
-                    "message": "로그인에 실패했습니다. 아이디 또는 비밀번호를 확인해주세요."
-                },
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-
-        return Response(
-            {
+                return Response({
+                    "success": True,
+                    "message": "로그인에 성공했습니다.",
+                    "access_token": serializer.validated_data['access'],
+                    "refresh_token": serializer.validated_data['refresh'],
+                })
+            
+            return Response({
                 "success": False,
-                "message": "로그인 요청이 올바르지 않습니다. 아이디와 비밀번호를 모두 입력해주세요."
-            },
-            status=status.HTTP_400_BAD_REQUEST
-        )
+                "message": "로그인에 실패했습니다.",
+                "errors": serializer.errors
+            }, status=status.HTTP_401_UNAUTHORIZED)
+            
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": "로그인 처리 중 오류가 발생했습니다.",
+                "errors": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # 로그아웃
@@ -165,4 +160,7 @@ class UserDetailView(APIView):
             {"success": True, "message": "회원 탈퇴에 성공했습니다."},
             status=status.HTTP_200_OK
         )
+
+def auth_page(request):
+    return render(request, 'account/auth.html')
         
