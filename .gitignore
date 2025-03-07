@@ -12,6 +12,12 @@ venv/
 pip-log.txt
 pip-delete-this-directory.txt
 
+# 크롤링 데이터
+**/crawled_contents/
+
+# 데이터베이스
+**/db/
+
 # langchain
 **/book_DB/
 **/data/
