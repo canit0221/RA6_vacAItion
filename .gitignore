@@ -33,8 +33,8 @@ pip-delete-this-directory.txt
 **/crawled_contents/
 
 # langchain
-**/book_DB/
-**/data/
+**/db/
+
 
 # Django 관련 (마이그레이션 캐시)
 *.log
