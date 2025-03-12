@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         try {
-            const response = await fetch(`${BACKEND_BASE_URL}/api/account/signup/`, {
+            const response = await fetch(`${BACKEND_BASE_URL}/signup/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

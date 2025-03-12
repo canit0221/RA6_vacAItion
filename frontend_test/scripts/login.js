@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const password = document.getElementById('password').value;
         
         try {
-            const response = await fetch(`${BACKEND_BASE_URL}/api/account/login/`, {
+            const response = await fetch(`${BACKEND_BASE_URL}/login/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
