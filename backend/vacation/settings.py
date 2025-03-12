@@ -171,14 +171,32 @@ ASGI_APPLICATION = "vacation.routing.application"
 # Channel Layers 설정
 CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
-# CORS 설정 추가
+# CORS 설정 (바닐라 JS 환경)
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
+    "http://127.0.0.1:5500",  # Vanilla JS Live Server 환경
+    "http://localhost:5500",  # 환경에 따라 필요할 경우 추가
 ]
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_CREDENTIALS = True  # 인증 정보(세션, 쿠키) 허용
+
+# 허용할 HTTP 메서드
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+]
+
+# 허용할 HTTP 헤더
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
 # 로그인 관련 설정 추가
 LOGIN_URL = "/api/account/auth/"
