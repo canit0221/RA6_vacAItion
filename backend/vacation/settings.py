@@ -28,10 +28,10 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 
 
 # DEBUG 설정을 환경변수로 관리
-DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
+DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
 
 # ALLOWED_HOSTS 설정
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 
 # Application definition
@@ -44,7 +44,6 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-
     # Third party
     "rest_framework",
     "rest_framework_simplejwt",
@@ -52,18 +51,17 @@ INSTALLED_APPS = [
     "django_extensions",
     "channels",
     "corsheaders",
-
     # local apps
     "account",
     "chatbot",
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
     ),
-    'EXCEPTION_HANDLER': 'account.utils.custom_exception_handler',
+    "EXCEPTION_HANDLER": "account.utils.custom_exception_handler",
 }
 
 SIMPLE_JWT = {
@@ -97,7 +95,7 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [
-            BASE_DIR / 'templates',
+            BASE_DIR / "templates",
         ],
         "APP_DIRS": True,
         "OPTIONS": {
@@ -113,7 +111,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "vacation.wsgi.application"
 
-AUTH_USER_MODEL= 'account.User'
+AUTH_USER_MODEL = "account.User"
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -148,9 +146,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = "ko-kr"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Asia/Seoul"
 
 USE_I18N = True
 
@@ -168,27 +166,25 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Channels 설정 추가
-ASGI_APPLICATION = 'vacation.routing.application'
+ASGI_APPLICATION = "vacation.routing.application"
 
 # Channel Layers 설정
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer'
-    }
-}
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
 # CORS 설정 추가
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # React 개발 서버
+    "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
 # 로그인 관련 설정 추가
-LOGIN_URL = '/api/account/auth/'
-LOGIN_REDIRECT_URL = '/chat/'
+LOGIN_URL = "/api/account/auth/"
+LOGIN_REDIRECT_URL = "/chat/"
 
 # 세션 설정 추가
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_AGE = 86400  # 24시간
 SESSION_COOKIE_SECURE = False  # HTTPS 사용 시 True로 변경
