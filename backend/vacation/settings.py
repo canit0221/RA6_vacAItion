@@ -199,7 +199,7 @@ CORS_ALLOW_HEADERS = [
 ]
 
 # 로그인 관련 설정 추가
-LOGIN_URL = "/api/account/auth/"
+LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/chat/"
 
 # 세션 설정 추가

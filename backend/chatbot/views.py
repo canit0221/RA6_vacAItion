@@ -12,7 +12,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 
-@login_required(login_url='/api/account/auth/')  # auth 페이지로 리다이렉트
+@login_required
 def chat_view(request):
     # 사용자의 모든 채팅 세션을 가져옴
     chat_sessions = ChatSession.objects.filter(user=request.user).order_by('-created_at')
@@ -35,7 +35,7 @@ def get_csrf_token(request):
     response.set_cookie("csrftoken", get_token(request), samesite='Lax')  # ✅ CSRF 쿠키 설정 강제
     return response
 
-@login_required(login_url='/api/account/auth/')  # 여기도 수정
+@login_required
 def index(request):
     return render(request, 'chatbot/index.html')
 
