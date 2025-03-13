@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vacAItion - 프로필</title>
+    <link rel="stylesheet" href="../styles/profile.css">
+    <!-- Font Awesome 추가 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="logo">vacAItion</h1>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="chat.html">채팅하기</a></li>
+                    <li><a href="profile.html" class="active">프로필</a></li>
+                    <li id="loginLink" style="display: none;"><a href="login.html">로그인</a></li>
+                    <li id="signupLink" style="display: none;"><a href="signup.html">회원가입</a></li>
+                    <li id="logoutLink"><a href="#" id="logoutButton">로그아웃</a></li>
+                </ul>
+            </nav>
+        </header>
+        
+        <main>
+            <div class="profile-container">
+                <div class="profile-card">
+                    <div class="profile-header">
+                        <h2>회원 정보</h2>
+                        <a href="#" id="editProfileIcon" class="edit-icon">
+                            <i class="fas fa-cog"></i>
+                        </a>
+                    </div>
+                    
+                    <div class="profile-content">
+                        <p class="profile-description">회원정보 페이지 입니다.</p>
+                        
+                        <div class="profile-info">
+                            <div class="profile-field">
+                                <span class="input-icon">👤</span>
+                                <span class="field-value" id="profile-nickname">로딩 중...</span>
+                            </div>
+                            <div class="profile-field">
+                                <span class="input-icon">✉️</span>
+                                <span class="field-value" id="profile-email">로딩 중...</span>
+                            </div>
+                            <div class="profile-field">
+                                <span class="input-icon">📍</span>
+                                <span class="field-value" id="profile-address">로딩 중...</span>
+                            </div>
+                        </div>
+                        
+                        <div class="password-change">
+                            <a href="#" id="changePasswordLink">Change Password?</a>
+                        </div>
+                        
+                        <div class="account-delete">
+                            <p>계정을 삭제하고 싶나요? <a href="#" id="deleteAccountLink">Delete here</a></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="../scripts/profile.js"></script>
+</body>
+</html> 

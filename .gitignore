@@ -1,0 +1,80 @@
+# 가상환경
+venv/
+env/
+.venv/
+.env/
+.conda/
+
+# 환경 변수 파일
+.env
+.env.local
+.env.*.local
+
+# Python 관련 파일
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python 관련
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+*.env.*
+.venv/
+venv/
+.env
+*.envrc
+pip-log.txt
+pip-delete-this-directory.txt
+
+# 크롤링 데이터
+**/crawled_contents/
+
+# langchain
+**/db/
+
+
+# Django 관련 (마이그레이션 캐시)
+*.log
+*.pot
+**/migrations/
+!**/migrations/__init__.py
+
+# 환경 설정 (IDE, 에디터 관련)
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Virtualenv & Poetry 관련
+Pipfile
+Pipfile.lock
+poetry.lock
+
+# SQLite 데이터베이스 파일 및 백업 파일
+db.sqlite3
+db.sqlite3-journal
+*.sqlite3-*
+*.sqlite3-shm
+*.sqlite3-wal
+
+# 패키지 관련
+node_modules/
+
+# 시스템 파일 (Mac & Windows)
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# 로그 파일 관련
+logs/
+
+# Python 버전관리 프로그램 pyenv
+.python-version
+
+# RAG ipynb파일
+RAG/
+.RAG/
