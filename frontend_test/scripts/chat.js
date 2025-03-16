@@ -1,6 +1,5 @@
 const BACKEND_BASE_URL = 'http://localhost:8000';
 let currentSession = null;
-let socket = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     // 로그인 상태 확인
@@ -62,6 +61,7 @@ function initializeChat() {
 
 // 채팅 세션 목록 로드 함수
 async function loadChatSessions() {
+    console.log('Loading chat sessions...');
     const accessToken = localStorage.getItem('access_token');
     if (!accessToken) return;
     
@@ -79,10 +79,7 @@ async function loadChatSessions() {
             
             // 세션이 있으면 첫 번째 세션을 로드
             if (sessions.length > 0) {
-                loadChatSession(sessions[0].id);
-            } else {
-                // 세션이 없으면 새 세션 생성
-                createNewChat();
+                await loadChatSession(sessions[0].id);
             }
         } else {
             console.error('세션 로드 실패:', response.statusText);
@@ -170,14 +167,113 @@ function displayChatSessions(sessions) {
     });
 }
 
-// 특정 채팅 세션 로드 함수
+class ChatWebSocket {
+    constructor(sessionId) {
+        if (ChatWebSocket.instance && ChatWebSocket.instance.sessionId === sessionId) {
+            return ChatWebSocket.instance;
+        }
+        
+        this.sessionId = sessionId;
+        this.ws = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
+        this.reconnectDelay = 1000;
+        this.manualClose = false;
+        
+        if (ChatWebSocket.instance) {
+            ChatWebSocket.instance.close();
+        }
+        
+        ChatWebSocket.instance = this;
+        this.setupWebSocket();
+    }
+
+    setupWebSocket() {
+        const accessToken = localStorage.getItem('access_token');
+        if (!accessToken) {
+            console.error('No access token found');
+            return;
+        }
+
+        try {
+            if (this.ws) {
+                this.ws.close();
+            }
+            
+            const wsUrl = `ws://localhost:8000/ws/chat/${this.sessionId}/?token=${accessToken}`;
+            this.ws = new WebSocket(wsUrl);
+            
+            this.ws.onopen = () => {
+                console.log('WebSocket connected successfully');
+                this.reconnectAttempts = 0;
+                this.reconnectDelay = 1000;
+            };
+
+            this.ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.bot_response) {
+                    displayMessage(data.bot_response, true);
+                }
+            };
+
+            this.ws.onclose = (event) => {
+                if (!this.manualClose && this.reconnectAttempts < this.maxReconnectAttempts) {
+                    console.log('WebSocket connection closed. Attempting to reconnect...');
+                    setTimeout(() => {
+                        this.reconnectAttempts++;
+                        this.setupWebSocket();
+                    }, this.reconnectDelay);
+                    this.reconnectDelay *= 2; // 지수 백오프
+                }
+            };
+
+            this.ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+        } catch (error) {
+            console.error('WebSocket setup error:', error);
+        }
+    }
+
+    sendMessage(message) {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            console.error('WebSocket is not connected');
+            return false;
+        }
+
+        try {
+            this.ws.send(JSON.stringify({ message }));
+            return true;
+        } catch (error) {
+            console.error('Send message error:', error);
+            return false;
+        }
+    }
+
+    close() {
+        this.manualClose = true;
+        if (this.ws) {
+            this.ws.close();
+            this.ws = null;
+        }
+    }
+}
+
+// 싱글톤 인스턴스 저장을 위한 정적 속성
+ChatWebSocket.instance = null;
+
+// 채팅 초기화 함수 수정
 async function loadChatSession(sessionId) {
-    const accessToken = localStorage.getItem('access_token');
-    if (!accessToken) return;
-    
-    currentSession = sessionId;
-    
     try {
+        currentSession = sessionId;
+        // 새로운 WebSocket 연결 생성 (싱글톤 패턴 사용)
+        new ChatWebSocket(sessionId);
+        
+        // 메시지 로드
+        const accessToken = localStorage.getItem('access_token');
+        if (!accessToken) return;
+        
         const response = await fetch(`${BACKEND_BASE_URL}/chat/api/messages/${sessionId}/`, {
             method: 'GET',
             headers: {
@@ -192,13 +288,18 @@ async function loadChatSession(sessionId) {
             // 현재 세션 타이틀 업데이트
             updateSessionTitle(sessionId);
             
-            // 웹소켓 연결
-            connectWebSocket(sessionId);
+            // 현재 선택된 세션 하이라이트
+            document.querySelectorAll('.session-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('data-session-id') === sessionId) {
+                    item.classList.add('active');
+                }
+            });
         } else {
             console.error('메시지 로드 실패:', response.statusText);
         }
     } catch (error) {
-        console.error('메시지 로드 에러:', error);
+        console.error('세션 로드 에러:', error);
     }
 }
 
@@ -238,14 +339,10 @@ function displayChatMessages(messages) {
 async function createNewChat() {
     const accessToken = localStorage.getItem('access_token');
     if (!accessToken) {
-        // 로그인 상태가 아니면 로그인 페이지로 이동
         alert('로그인이 필요한 기능입니다.');
         window.location.href = 'login.html';
         return;
     }
-    
-    // 새 채팅 생성 플래그 설정 (연결 종료 메시지 숨기기 위함)
-    localStorage.setItem('just_created_chat', 'true');
     
     try {
         const title = '새 채팅 ' + new Date().toLocaleString();
@@ -260,23 +357,17 @@ async function createNewChat() {
         
         if (response.ok) {
             const session = await response.json();
-            
-            // 세션 생성 후 지연 시간을 늘림 (백엔드에서 세션이 완전히 생성될 시간을 확보)
-            setTimeout(() => {
-                loadChatSession(session.id); // 직접 새 세션을 로드
-                
-                // 2초 후에 플래그 제거 (연결 종료/에러 메시지 억제 용도)
-                setTimeout(() => {
-                    localStorage.removeItem('just_created_chat');
-                }, 2000);
-            }, 1000); // 1초로 지연 시간 증가
+            // 새로운 세션 생성 후 해당 세션으로 이동
+            await loadChatSession(session.id);
+            // 세션 목록 새로고침
+            loadChatSessions();
         } else {
             console.error('세션 생성 실패:', response.statusText);
-            localStorage.removeItem('just_created_chat'); // 실패 시 플래그 제거
+            alert('새 채팅방 생성에 실패했습니다.');
         }
     } catch (error) {
         console.error('세션 생성 에러:', error);
-        localStorage.removeItem('just_created_chat'); // 예외 발생 시 플래그 제거
+        alert('새 채팅방 생성 중 오류가 발생했습니다.');
     }
 }
 
@@ -290,101 +381,8 @@ function updateSessionTitle(sessionId) {
     });
 }
 
-// 채팅 메시지 전송 함수
-function sendMessage(e) {
-    e.preventDefault();
-    
-    const messageInput = document.getElementById('messageInput');
-    const message = messageInput.value.trim();
-    
-    if (!message) return;
-    
-    const accessToken = localStorage.getItem('access_token');
-    
-    if (!accessToken) {
-        // 로그인 상태가 아니면 로그인 페이지로 이동
-        alert('채팅을 사용하려면 로그인이 필요합니다.');
-        window.location.href = 'login.html';
-        return;
-    }
-    
-    if (!currentSession) {
-        console.warn('현재 세션이 없습니다. 새 채팅 세션을 생성합니다.');
-        createNewChat();
-        
-        // 세션 생성 후 잠시 대기 후 메시지 재전송 시도
-        setTimeout(() => {
-            const retryMsg = messageInput.value.trim();
-            if (retryMsg && currentSession) {
-                sendMessageToServer(retryMsg);
-            }
-        }, 1500);
-        return;
-    }
-    
-    sendMessageToServer(message);
-    
-    // 입력창 초기화
-    messageInput.value = '';
-}
-
-// 서버로 메시지 전송 함수
-function sendMessageToServer(message) {
-    console.log('메시지 전송 시도:', message, '세션:', currentSession);
-    
-    // 웹소켓 상태 확인
-    if (!socket) {
-        console.error('웹소켓이 초기화되지 않았습니다.');
-        addMessageToChat('서버에 연결되어 있지 않습니다. 페이지를 새로고침 해주세요.', true);
-        return;
-    }
-    
-    if (socket.readyState !== WebSocket.OPEN) {
-        console.error('웹소켓 연결 상태:', socket.readyState);
-        
-        // 재연결 시도
-        if (socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
-            console.log('연결이 끊어졌습니다. 재연결 시도...');
-            connectWebSocket(currentSession);
-            
-            // 잠시 후 메시지 재전송 시도
-            setTimeout(() => {
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    socket.send(JSON.stringify({
-                        message: message,
-                        session_id: currentSession
-                    }));
-                    addMessageToChat(message, false);
-                } else {
-                    alert('서버에 연결할 수 없습니다. 페이지를 새로고침 해주세요.');
-                }
-            }, 1000);
-            return;
-        }
-        
-        alert('채팅 서버에 연결할 수 없습니다. 페이지를 새로고침 해주세요.');
-        return;
-    }
-    
-    try {
-        // 메시지 전송
-        socket.send(JSON.stringify({
-            message: message,
-            session_id: currentSession
-        }));
-        
-        // 화면에 사용자 메시지 추가
-        addMessageToChat(message, false);
-        
-        console.log('메시지 전송 성공');
-    } catch (error) {
-        console.error('메시지 전송 오류:', error);
-        addMessageToChat('메시지 전송에 실패했습니다. 다시 시도해주세요.', true);
-    }
-}
-
-// 채팅창에 메시지 추가 함수
-function addMessageToChat(content, isBot) {
+// 메시지 표시 함수
+function displayMessage(content, isBot) {
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) return;
     
@@ -406,89 +404,26 @@ function addMessageToChat(content, isBot) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// 웹소켓 연결 함수
-function connectWebSocket(sessionId) {
-    // 기존 소켓이 있으면 닫기
-    if (socket) {
-        socket.close();
-    }
+// 메시지 전송 함수 수정
+async function sendMessage(e) {
+    e.preventDefault();
     
-    // 인증 토큰 확인
-    const accessToken = localStorage.getItem('access_token');
-    if (!accessToken) {
-        console.error('인증 토큰이 없습니다. 채팅을 이용할 수 없습니다.');
+    const messageInput = document.getElementById('messageInput');
+    const message = messageInput.value.trim();
+    
+    if (!message) return;
+    
+    if (!currentSession) {
+        console.warn('현재 세션이 없습니다.');
         return;
     }
-    
-    // 현재 세션 ID 저장
-    currentSession = sessionId;
-    
-    // 웹소켓 URL
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${window.location.hostname}:8000/ws/chat/${sessionId}/?token=${accessToken}`;
-    
-    console.log('웹소켓 연결 시도:', wsUrl);
-    
-    try {
-        socket = new WebSocket(wsUrl);
-        
-        socket.onopen = () => {
-            console.log('웹소켓 연결 성공:', sessionId);
-            
-            // 연결 성공 메시지 (삭제)
-            // addMessageToChat('서버에 연결되었습니다. 질문을 입력해주세요!', true);
-        };
-        
-        socket.onmessage = (event) => {
-            console.log('웹소켓 메시지 수신:', event.data);
-            try {
-                const data = JSON.parse(event.data);
-                
-                // 봇 응답 처리
-                if (data.bot_response) {
-                    addMessageToChat(data.bot_response, true);
-                }
-                // 이전 방식 호환성 유지
-                else if (data.message) {
-                    addMessageToChat(data.message, data.is_bot);
-                }
-            } catch (e) {
-                console.error('메시지 파싱 오류:', e);
-                if (typeof event.data === 'string') {
-                    addMessageToChat(event.data, true);
-                }
-            }
-        };
-        
-        socket.onerror = (error) => {
-            console.error('웹소켓 에러:', error);
-            
-            // 새 채팅 생성 직후에는 에러 메시지 표시하지 않음
-            const isAfterNewChatCreation = localStorage.getItem('just_created_chat') === 'true';
-            
-            if (!isAfterNewChatCreation) {
-                addMessageToChat('서버 연결에 문제가 발생했습니다. 새로고침을 해보세요.', true);
-            }
-        };
-        
-        socket.onclose = (event) => {
-            console.log('웹소켓 연결 종료:', event.code, event.reason);
-            
-            // 정상적인 종료(1000) 또는 새 채팅방을 만든 직후(createNewChat 호출 후 1초 이내)인 경우 
-            // 메시지를 표시하지 않음
-            const isAfterNewChatCreation = localStorage.getItem('just_created_chat') === 'true';
-            
-            if (event.code !== 1000 && !isAfterNewChatCreation) {
-                addMessageToChat(`서버와의 연결이 끊어졌습니다. (코드: ${event.code})`, true);
-            }
-            
-            // 새 채팅 생성 플래그 제거
-            if (isAfterNewChatCreation) {
-                localStorage.removeItem('just_created_chat');
-            }
-        };
-    } catch (error) {
-        console.error('웹소켓 초기화 오류:', error);
+
+    // 메시지 전송
+    if (ChatWebSocket.instance && ChatWebSocket.instance.sendMessage(message)) {
+        // 사용자 메시지 표시
+        displayMessage(message, false);
+        // 입력창 초기화
+        messageInput.value = '';
     }
 }
 
@@ -532,7 +467,7 @@ async function logout() {
     }
 }
 
-// 채팅 세션 삭제 함수
+// 채팅 세션 삭제 함수 수정
 async function deleteChatSession(sessionId) {
     const accessToken = localStorage.getItem('access_token');
     if (!accessToken) {
@@ -556,9 +491,8 @@ async function deleteChatSession(sessionId) {
             if (currentSession === sessionId) {
                 currentSession = null;
                 // 웹소켓 연결 종료
-                if (socket) {
-                    socket.close();
-                    socket = null;
+                if (ChatWebSocket.instance) {
+                    ChatWebSocket.instance.close();
                 }
                 // 채팅창 비우기
                 const chatMessages = document.getElementById('chatMessages');

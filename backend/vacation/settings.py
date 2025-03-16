@@ -52,8 +52,8 @@ INSTALLED_APPS = [
     "channels",
     "corsheaders",
     # local apps
-    "account",
-    "chatbot",
+    "account.apps.AccountConfig",
+    "chatbot.apps.ChatbotConfig",
 ]
 
 REST_FRAMEWORK = {
@@ -69,13 +69,8 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=3),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
-    "USER_ID_FIELD": "username",  # PK가 username일 때 필수
-    "USER_ID_CLAIM": "username",  # 토큰에 들어갈 필드명 (선택)
-    "AUTH_COOKIE": "access_token",
-    "AUTH_COOKIE_SECURE": False,
-    "AUTH_COOKIE_HTTP_ONLY": True,
-    "AUTH_COOKIE_PATH": "/",
-    "AUTH_COOKIE_SAMESITE": "Lax",
+    "USER_ID_FIELD": "username",
+    "USER_ID_CLAIM": "username",
 }
 
 MIDDLEWARE = [
@@ -169,14 +164,25 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 ASGI_APPLICATION = "vacation.routing.application"
 
 # Channel Layers 설정
-CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+        "CONFIG": {
+            "capacity": 1500,
+        },
+    },
+}
+
+# WebSocket 타임아웃 설정
+WEBSOCKET_CONNECT_TIMEOUT = 60  # 초 단위
+WEBSOCKET_READ_TIMEOUT = 60  # 초 단위
 
 # CORS 설정 (바닐라 JS 환경)
 CORS_ALLOWED_ORIGINS = [
-    "http://127.0.0.1:5500",  # Vanilla JS Live Server 환경
-    "http://localhost:5500",  # 환경에 따라 필요할 경우 추가
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
 ]
-CORS_ALLOW_CREDENTIALS = True  # 인증 정보(세션, 쿠키) 허용
+CORS_ALLOW_CREDENTIALS = True
 
 # 허용할 HTTP 메서드
 CORS_ALLOW_METHODS = [
