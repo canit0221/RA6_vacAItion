@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VacAItion - 일정 추가</title>
+    <link rel="stylesheet" href="../styles/add-schedule.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <img src="../assets/logo.png" alt="VacAItion" class="logo-img">
+                <span class="logo-text">VacAItion</span>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="calendar.html">Home</a></li>
+                    <li><a href="profile.html" id="profileLink">Profile</a></li>
+                    <li><a href="#" id="logoutLink" class="logout">Logout</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main class="schedule-container">
+            <div class="schedule-form">
+                <div class="date-section">
+                    <h2 class="month-title">April 2025</h2>
+                    <div class="mini-calendar">
+                        <!-- 미니 캘린더가 JS로 동적 생성됩니다 -->
+                    </div>
+                </div>
+
+                <div class="schedule-details">
+                    <h3 class="selected-date">2025.04.05 토요일 ⭐</h3>
+                    <div class="form-group">
+                        <label>Where?</label>
+                        <input type="text" id="location" placeholder="장소를 입력하세요">
+                    </div>
+                    <div class="form-group">
+                        <label>with Who?</label>
+                        <input type="text" id="companion" placeholder="동행인을 입력하세요">
+                    </div>
+                    <div class="form-group">
+                        <label>Memo</label>
+                        <textarea id="memo" placeholder="메모를 입력하세요"></textarea>
+                    </div>
+                    <div class="button-group">
+                        <button class="save-btn">현재 페이지에서 저장</button>
+                        <button class="submit-btn">저장 후 캘린더로 이동</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="../scripts/add-schedule.js"></script>
+</body>
+</html> 
