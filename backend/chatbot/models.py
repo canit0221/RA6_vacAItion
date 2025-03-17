@@ -12,6 +12,7 @@ class Chat(models.Model):
     message = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
+
 class ChatSession(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     title = models.CharField(max_length=200)
@@ -22,8 +23,11 @@ class ChatSession(models.Model):
     def __str__(self):
         return f"{self.user.username}'s chat - {self.title}"
 
+
 class ChatMessage(models.Model):
-    session = models.ForeignKey(ChatSession, related_name='messages', on_delete=models.CASCADE)
+    session = models.ForeignKey(
+        ChatSession, related_name="messages", on_delete=models.CASCADE
+    )
     content = models.TextField()
     is_bot = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

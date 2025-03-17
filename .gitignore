@@ -34,7 +34,7 @@ pip-delete-this-directory.txt
 
 # langchain
 **/db/
-
+**/event_db/
 
 # Django 관련 (마이그레이션 캐시)
 *.log

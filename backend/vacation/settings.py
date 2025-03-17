@@ -28,10 +28,10 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 
 
 # DEBUG 설정을 환경변수로 관리
-DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
+DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
 
 # ALLOWED_HOSTS 설정
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 
 # Application definition
@@ -44,7 +44,6 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-
     # Third party
     "rest_framework",
     "rest_framework_simplejwt",
@@ -52,18 +51,17 @@ INSTALLED_APPS = [
     "django_extensions",
     "channels",
     "corsheaders",
-
     # local apps
-    "account",
-    "chatbot",
+    "account.apps.AccountConfig",
+    "chatbot.apps.ChatbotConfig",
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
     ),
-    'EXCEPTION_HANDLER': 'account.utils.custom_exception_handler',
+    "EXCEPTION_HANDLER": "account.utils.custom_exception_handler",
 }
 
 SIMPLE_JWT = {
@@ -71,13 +69,8 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=3),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
-    "USER_ID_FIELD": "username",  # PK가 username일 때 필수
-    "USER_ID_CLAIM": "username",  # 토큰에 들어갈 필드명 (선택)
-    "AUTH_COOKIE": "access_token",
-    "AUTH_COOKIE_SECURE": False,
-    "AUTH_COOKIE_HTTP_ONLY": True,
-    "AUTH_COOKIE_PATH": "/",
-    "AUTH_COOKIE_SAMESITE": "Lax",
+    "USER_ID_FIELD": "username",
+    "USER_ID_CLAIM": "username",
 }
 
 MIDDLEWARE = [
@@ -97,7 +90,7 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [
-            BASE_DIR / 'templates',
+            BASE_DIR / "templates",
         ],
         "APP_DIRS": True,
         "OPTIONS": {
@@ -113,7 +106,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "vacation.wsgi.application"
 
-AUTH_USER_MODEL= 'account.User'
+AUTH_USER_MODEL = "account.User"
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -148,9 +141,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = "ko-kr"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Asia/Seoul"
 
 USE_I18N = True
 
@@ -168,27 +161,54 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Channels 설정 추가
-ASGI_APPLICATION = 'vacation.routing.application'
+ASGI_APPLICATION = "vacation.routing.application"
 
 # Channel Layers 설정
 CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer'
-    }
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+        "CONFIG": {
+            "capacity": 1500,
+        },
+    },
 }
 
-# CORS 설정 추가
+# WebSocket 타임아웃 설정
+WEBSOCKET_CONNECT_TIMEOUT = 60  # 초 단위
+WEBSOCKET_READ_TIMEOUT = 60  # 초 단위
+
+# CORS 설정 (바닐라 JS 환경)
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # React 개발 서버
-    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
+# 허용할 HTTP 메서드
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+]
+
+# 허용할 HTTP 헤더
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+
 # 로그인 관련 설정 추가
-LOGIN_URL = '/api/account/auth/'
-LOGIN_REDIRECT_URL = '/chat/'
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/chat/"
 
 # 세션 설정 추가
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_AGE = 86400  # 24시간
 SESSION_COOKIE_SECURE = False  # HTTPS 사용 시 True로 변경
