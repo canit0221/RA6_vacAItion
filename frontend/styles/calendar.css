@@ -124,6 +124,8 @@ header {
     position: relative;
     transition: all 0.2s ease;
     font-weight: 500;
+    position: relative !important;
+    min-height: 45px !important;
 }
 
 .day:hover {
@@ -165,10 +167,13 @@ header {
 }
 
 .weather-icon {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    font-size: 12px;
+    position: absolute !important;
+    top: 5px !important;
+    right: 5px !important;
+    font-size: 18px !important;
+    z-index: 100 !important;
+    color: #000 !important;
+    display: block !important;
 }
 
 .day.empty {
@@ -178,4 +183,15 @@ header {
 
 .day.empty:hover {
     background: none;
+}
+
+/* 오류 메시지 스타일 */
+.error-message {
+    background-color: #ffdddd;
+    border: 1px solid #ff9999;
+    color: #cc0000;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+    text-align: center;
 } 

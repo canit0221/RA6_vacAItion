@@ -154,9 +154,11 @@ class Calendar {
 
     async fetchMonthlySchedules() {
         try {
-            // 백엔드 URL 구조에 맞는 정확한 API 엔드포인트
+            // 로딩 상태 표시 (선택사항)
+            this.showLoading();
+            
+            // 정확한 API URL 구성
             const apiUrl = `${BACKEND_BASE_URL}/calendar/schedules/?year=${this.currentYear}&month=${this.currentMonth + 1}`;
-            console.log('스케줄 API 호출:', apiUrl);
             
             const response = await fetch(apiUrl, {
                 headers: {
@@ -164,85 +166,85 @@ class Calendar {
                 }
             });
             
+            // 로딩 상태 제거
+            this.hideLoading();
+            
+            // 상태 코드 처리
             if (response.status === 401) {
-                // 인증 실패 시 로그인 페이지로 리다이렉트
+                console.error('인증 실패: 다시 로그인이 필요합니다.');
                 localStorage.removeItem('access_token');
                 localStorage.removeItem('refresh_token');
                 localStorage.removeItem('username');
                 window.location.replace('login.html');
                 return;
             }
-
-            if (response.status === 404) {
-                console.error('API 엔드포인트를 찾을 수 없습니다:', apiUrl);
-                this.updateCalendarWithSchedules([]);
-                this.showErrorMessage('스케줄 API를 찾을 수 없습니다. 서버 설정을 확인하세요.');
-                return;
-            }
-
-            if (response.status === 500) {
-                console.error('서버 내부 오류:', apiUrl);
-                this.updateCalendarWithSchedules([]);
-                this.showErrorMessage('서버 오류가 발생했습니다. 데이터베이스 연결이나 마이그레이션 상태를 확인하세요.');
-                return;
-            }
-
+            
             if (!response.ok) {
                 console.error(`API 오류 ${response.status}: ${apiUrl}`);
-                this.updateCalendarWithSchedules([]);
-                this.showErrorMessage(`API 오류 (${response.status})`);
+                const errorText = await response.text();
+                console.error('응답 내용:', errorText);
+                
+                // 오류 메시지 표시
+                this.showErrorMessage(`서버 오류 (${response.status}): 관리자에게 문의하세요.`);
                 return;
             }
-
-            // 성공!
-            console.log('API 응답:', response);
-            const schedules = await response.json();
-            this.updateCalendarWithSchedules(schedules);
+            
+            // JSON 응답 파싱
+            const data = await response.json();
+            
+            // 일정 및 날씨 데이터 처리
+            if (data.schedules) {
+                this.updateCalendarWithSchedules(data.schedules, data.weather || []);
+            } else {
+                this.updateCalendarWithSchedules([]);
+            }
             
         } catch (error) {
             console.error('스케줄 가져오기 오류:', error);
-            // 에러 시 빈 일정으로 업데이트
-            this.updateCalendarWithSchedules([]);
+            this.hideLoading();
             this.showErrorMessage('서버 통신 중 오류가 발생했습니다.');
         }
     }
 
-    updateCalendarWithSchedules(schedules) {
-        console.log('일정 데이터 받음:', schedules);
-        
+    updateCalendarWithSchedules(schedules, weatherData = []) {
         // 모든 일정 표시 제거
         document.querySelectorAll('.day').forEach(day => {
+            // 기존 콘텐츠 초기화
             day.classList.remove('has-event');
-        });
-
-        // 일정이 있는 날짜에 표시
-        schedules.forEach(schedule => {
-            try {
-                // 일정 날짜를 Date 객체로 변환
-                const scheduleDate = new Date(schedule.date);
-                console.log('일정 날짜:', scheduleDate, '원본 날짜 문자열:', schedule.date);
+            const weatherIcon = day.querySelector('.weather-icon');
+            if (weatherIcon) {
+                weatherIcon.remove();
+            }
+            
+            // 날짜 정보 가져오기
+            const dateAttr = day.getAttribute('data-date');
+            if (!dateAttr) return;
+            
+            // 해당 날짜의 일정 확인
+            const hasSchedule = schedules.some(schedule => 
+                schedule.date === dateAttr
+            );
+            
+            if (hasSchedule) {
+                day.classList.add('has-event');
+            }
+            
+            // 날씨 정보 표시
+            if (weatherData && weatherData.length > 0) {
+                // 해당 날짜의 날씨 찾기 (날씨 데이터의 날짜에서 마지막 두 자리만 추출하여 비교)
+                const weatherInfo = weatherData.find(w => {
+                    // 날씨 데이터 날짜에서 마지막 두 자리(일) 추출
+                    const dayFromWeather = w.date.slice(-2).replace(/^0/, ''); // 앞의 0 제거 (01→1)
+                    return dayFromWeather === dateAttr;
+                });
                 
-                // 현재 표시 중인 월과 년도에 해당하는 일정만 필터링
-                if (scheduleDate.getMonth() === this.currentMonth && 
-                    scheduleDate.getFullYear() === this.currentYear) {
-                    
-                    // 날짜에 해당하는 요소 찾기
-                    const dayElement = document.querySelector(`.day[data-date="${scheduleDate.getDate()}"]`);
-                    
-                    if (dayElement) {
-                        console.log(`${scheduleDate.getDate()}일에 일정 표시`);
-                        dayElement.classList.add('has-event');
-                        
-                        // 일정 정보를 툴팁으로 표시 (옵션)
-                        dayElement.setAttribute('title', `일정: ${schedule.location}`);
-                    } else {
-                        console.log(`${scheduleDate.getDate()}일 요소를 찾을 수 없음`);
-                    }
-                } else {
-                    console.log(`다른 월의 일정 (${scheduleDate.getMonth() + 1}월)이므로 표시하지 않음`);
+                if (weatherInfo && weatherInfo.icon) {
+                    // 날씨 아이콘 표시
+                    const weatherIconDiv = document.createElement('div');
+                    weatherIconDiv.className = 'weather-icon';
+                    weatherIconDiv.textContent = weatherInfo.icon;
+                    day.appendChild(weatherIconDiv);
                 }
-            } catch (error) {
-                console.error('일정 표시 중 오류 발생:', error, '일정 데이터:', schedule);
             }
         });
     }
@@ -351,6 +353,39 @@ class Calendar {
         } else {
             // 캘린더 컨테이너가 없으면 body에 추가
             document.body.prepend(errorDiv);
+        }
+    }
+
+    // 로딩 표시 함수 추가
+    showLoading() {
+        const calendarContainer = document.querySelector('.calendar-container');
+        if (!calendarContainer) return;
+        
+        // 이미 로딩 메시지가 있는지 확인
+        if (document.querySelector('.loading-message')) return;
+        
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'loading-message';
+        loadingDiv.textContent = '데이터 로딩 중...';
+        loadingDiv.style.position = 'absolute';
+        loadingDiv.style.top = '50%';
+        loadingDiv.style.left = '50%';
+        loadingDiv.style.transform = 'translate(-50%, -50%)';
+        loadingDiv.style.padding = '10px 20px';
+        loadingDiv.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        loadingDiv.style.color = 'white';
+        loadingDiv.style.borderRadius = '5px';
+        loadingDiv.style.zIndex = '1000';
+        
+        calendarContainer.style.position = 'relative';
+        calendarContainer.appendChild(loadingDiv);
+    }
+
+    // 로딩 숨김 함수 추가
+    hideLoading() {
+        const loadingDiv = document.querySelector('.loading-message');
+        if (loadingDiv) {
+            loadingDiv.remove();
         }
     }
 }
