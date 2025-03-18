@@ -210,18 +210,43 @@ class Calendar {
         // 현재 표시 중인 년월 계산
         const currentYearMonth = `${this.currentYear}${(this.currentMonth + 1).toString().padStart(2, '0')}`;
         
-        // 현재 표시 중인 달에 해당하는 날씨 데이터만 필터링
+        // 날씨 데이터 처리 (이미 작동하는 코드)
         const currentMonthWeather = weatherData.filter(w => {
             return w.date.substring(0, 6) === currentYearMonth;
         });
         
-        // 필터링된 날씨 데이터를 일(day)만 포함하는 간단한 형식으로 변환
         const simplifiedWeather = currentMonthWeather.map(w => {
             return {
                 date: w.date.slice(-2).replace(/^0/, ''), // "01" → "1" 변환
                 icon: w.icon
             };
         });
+        
+        // 일정 데이터도 비슷한 방식으로 처리
+        // 현재 년월에 해당하는 일정만 필터링하고 일(day) 형식을 맞춤
+        const simplifiedSchedules = Array.isArray(schedules) ? schedules.map(schedule => {
+            // 일정 날짜에서 일(day) 부분만 추출
+            let day = '';
+            if (schedule.date) {
+                // YYYY-MM-DD 형식
+                if (schedule.date.includes('-')) {
+                    day = schedule.date.split('-')[2].replace(/^0/, '');
+                } 
+                // YYYYMMDD 형식
+                else if (schedule.date.length === 8) {
+                    day = schedule.date.slice(-2).replace(/^0/, '');
+                }
+                // 그 외 형식 (일만 있는 경우 등)
+                else {
+                    day = schedule.date.toString().replace(/^0/, '');
+                }
+            }
+            
+            return {
+                date: day,
+                details: schedule
+            };
+        }) : [];
         
         document.querySelectorAll('.day').forEach(day => {
             // 기존 콘텐츠 초기화
@@ -235,16 +260,14 @@ class Calendar {
             const dateAttr = day.getAttribute('data-date');
             if (!dateAttr) return;
             
-            // 해당 날짜의 일정 확인 (기존 코드와 동일)
-            const hasSchedule = schedules.some(schedule => 
-                schedule.date === dateAttr
-            );
+            // 해당 날짜의 일정 확인 (날씨 코드와 동일한 방식으로)
+            const hasSchedule = simplifiedSchedules.some(s => s.date === dateAttr);
             
             if (hasSchedule) {
                 day.classList.add('has-event');
             }
             
-            // 날씨 정보 표시 (일정과 유사한 방식으로)
+            // 날씨 정보 표시
             const weatherInfo = simplifiedWeather.find(w => w.date === dateAttr);
             
             if (weatherInfo && weatherInfo.icon) {
