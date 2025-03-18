@@ -29,17 +29,89 @@ checkServerConnection().then(isConnected => {
     }
 });
 
-// 전역 로그아웃 함수 (HTML에서 직접 호출 가능)
-window.doLogout = function() {
-    console.log('전역 로그아웃 함수 호출됨');
-    // 로컬 스토리지에서 토큰 제거
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('username');
+// 로그아웃 함수
+async function logout() {
+    console.log('로그아웃 함수 실행됨');
+    try {
+        const refreshToken = localStorage.getItem('refresh_token');
+        const accessToken = localStorage.getItem('access_token');
+        
+        if (refreshToken && accessToken) {
+            try {
+                console.log('로그아웃 API 호출...');
+                // 서버에 맞는 로그아웃 경로 사용
+                await fetch(`${BACKEND_BASE_URL}/logout/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({
+                        refresh: refreshToken
+                    })
+                });
+            } catch (error) {
+                console.error('로그아웃 API 에러:', error);
+            }
+        }
+    } finally {
+        // 로컬 스토리지에서 토큰 제거
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('username');
+        
+        alert('로그아웃 되었습니다.');
+        window.location.replace('login.html');
+    }
+}
+
+// UI 업데이트 함수
+function updateUI() {
+    // 사용자 이름 표시
+    const username = localStorage.getItem('username');
+    const profileLinks = document.querySelectorAll('nav.main-nav a');
     
-    alert('로그아웃 되었습니다.');
-    window.location.replace('login.html');
-};
+    // 사용자 이름이 있으면 프로필 링크 텍스트 업데이트
+    if (username && profileLinks.length > 1) {
+        profileLinks[1].textContent = `${username}님의 프로필`;
+    }
+}
+
+// 이벤트 리스너 설정
+function setupEventListeners() {
+    const navLinks = document.querySelectorAll('nav.main-nav a');
+    
+    // 네비게이션 링크 이벤트 처리
+    if (navLinks.length >= 3) {
+        // 홈 링크 (이미 활성화 상태)
+        
+        // 프로필 링크 (두 번째 링크)
+        navLinks[1].addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('프로필 링크 클릭됨');
+            window.location.href = 'edit-profile.html';
+        });
+        
+        // 로그아웃 링크 (세 번째 링크)
+        navLinks[2].addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('로그아웃 링크 클릭됨');
+            logout();
+        });
+    } else {
+        console.warn('네비게이션 링크를 찾을 수 없습니다:', navLinks);
+    }
+}
+
+// 로그인 상태 확인 함수
+function checkLoginStatus() {
+    const accessToken = localStorage.getItem('access_token');
+    if (!accessToken) {
+        window.location.replace('login.html');
+        return false;
+    }
+    return true;
+}
 
 class Calendar {
     constructor() {
@@ -47,6 +119,8 @@ class Calendar {
         this.currentMonth = this.date.getMonth();
         this.currentYear = this.date.getFullYear();
         this.selectedDate = null;
+        
+        // 오늘 날짜 정보 저장 제거
         
         this.monthYearElement = document.querySelector('.month-year');
         this.daysContainer = document.querySelector('#calendar-days');
@@ -134,6 +208,8 @@ class Calendar {
     }
 
     updateCalendarWithSchedules(schedules) {
+        console.log('일정 데이터 받음:', schedules);
+        
         // 모든 일정 표시 제거
         document.querySelectorAll('.day').forEach(day => {
             day.classList.remove('has-event');
@@ -141,10 +217,32 @@ class Calendar {
 
         // 일정이 있는 날짜에 표시
         schedules.forEach(schedule => {
-            const scheduleDate = new Date(schedule.date);
-            const dayElement = document.querySelector(`.day[data-date="${scheduleDate.getDate()}"]`);
-            if (dayElement) {
-                dayElement.classList.add('has-event');
+            try {
+                // 일정 날짜를 Date 객체로 변환
+                const scheduleDate = new Date(schedule.date);
+                console.log('일정 날짜:', scheduleDate, '원본 날짜 문자열:', schedule.date);
+                
+                // 현재 표시 중인 월과 년도에 해당하는 일정만 필터링
+                if (scheduleDate.getMonth() === this.currentMonth && 
+                    scheduleDate.getFullYear() === this.currentYear) {
+                    
+                    // 날짜에 해당하는 요소 찾기
+                    const dayElement = document.querySelector(`.day[data-date="${scheduleDate.getDate()}"]`);
+                    
+                    if (dayElement) {
+                        console.log(`${scheduleDate.getDate()}일에 일정 표시`);
+                        dayElement.classList.add('has-event');
+                        
+                        // 일정 정보를 툴팁으로 표시 (옵션)
+                        dayElement.setAttribute('title', `일정: ${schedule.location}`);
+                    } else {
+                        console.log(`${scheduleDate.getDate()}일 요소를 찾을 수 없음`);
+                    }
+                } else {
+                    console.log(`다른 월의 일정 (${scheduleDate.getMonth() + 1}월)이므로 표시하지 않음`);
+                }
+            } catch (error) {
+                console.error('일정 표시 중 오류 발생:', error, '일정 데이터:', schedule);
             }
         });
     }
@@ -154,6 +252,12 @@ class Calendar {
         const lastDay = new Date(this.currentYear, this.currentMonth + 1, 0);
         const startingDay = firstDay.getDay();
         const monthLength = lastDay.getDate();
+
+        // 오늘 날짜 정보 가져오기
+        const today = new Date();
+        const todayYear = today.getFullYear();
+        const todayMonth = today.getMonth();
+        const todayDate = today.getDate();
 
         // Update month and year display
         const months = ['January', 'February', 'March', 'April', 'May', 'June', 
@@ -174,6 +278,14 @@ class Calendar {
         for (let day = 1; day <= monthLength; day++) {
             const dayElement = document.createElement('div');
             dayElement.className = 'day';
+            
+            // 오늘 날짜인지 확인
+            if (day === todayDate && 
+                this.currentMonth === todayMonth && 
+                this.currentYear === todayYear) {
+                dayElement.classList.add('today');
+            }
+            
             dayElement.textContent = day;
             dayElement.setAttribute('data-date', day);
 
@@ -240,103 +352,6 @@ class Calendar {
             // 캘린더 컨테이너가 없으면 body에 추가
             document.body.prepend(errorDiv);
         }
-    }
-}
-
-// 로그인 상태 확인 함수
-function checkLoginStatus() {
-    const accessToken = localStorage.getItem('access_token');
-    if (!accessToken) {
-        window.location.replace('login.html');
-        return false;
-    }
-    return true;
-}
-
-// UI 업데이트 함수
-function updateUI() {
-    // 사용자 이름 표시
-    const username = localStorage.getItem('username');
-    const profileLink = document.getElementById('profileLink');
-    if (username && profileLink) {
-        profileLink.textContent = `${username}님의 프로필`;
-    }
-}
-
-// 이벤트 리스너 설정
-function setupEventListeners() {
-    // 프로필 링크
-    const profileLink = document.getElementById('profileLink');
-    if (profileLink) {
-        profileLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            window.location.href = 'profile.html';
-        });
-    }
-
-    // 로그아웃 링크 (간단하게 로그아웃 링크만 사용)
-    const logoutLink = document.getElementById('logoutLink') || document.querySelector('a.logout');
-    if (logoutLink) {
-        console.log('로그아웃 버튼 찾음', logoutLink);
-        logoutLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            console.log('로그아웃 클릭됨');
-            doLogout(); // 전역 로그아웃 함수 사용
-        });
-    } else {
-        console.warn('로그아웃 버튼을 찾을 수 없습니다');
-        
-        // 버튼이 없으면 생성 (임시 해결책)
-        const nav = document.querySelector('nav');
-        if (nav) {
-            const newLogoutLink = document.createElement('a');
-            newLogoutLink.href = '#';
-            newLogoutLink.id = 'logoutLink';
-            newLogoutLink.className = 'logout';
-            newLogoutLink.textContent = '로그아웃';
-            newLogoutLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                doLogout();
-            });
-            nav.appendChild(newLogoutLink);
-            console.log('로그아웃 버튼 생성됨');
-        }
-    }
-}
-
-// 로그아웃 함수
-async function logout() {
-    console.log('로그아웃 함수 실행됨');
-    try {
-        const refreshToken = localStorage.getItem('refresh_token');
-        const accessToken = localStorage.getItem('access_token');
-        
-        if (refreshToken && accessToken) {
-            try {
-                console.log('로그아웃 API 호출...');
-                // 서버에 맞는 로그아웃 경로 사용
-                await fetch(`${BACKEND_BASE_URL}/logout/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${accessToken}`
-                    },
-                    body: JSON.stringify({
-                        refresh: refreshToken
-                    })
-                });
-            } catch (error) {
-                console.error('로그아웃 API 에러:', error);
-            }
-        }
-    } finally {
-        // 로컬 스토리지에서 토큰 제거
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('username');
-        
-        alert('로그아웃 되었습니다.');
-        window.location.replace('login.html');
     }
 }
 

@@ -56,71 +56,17 @@ class ScheduleDetailView(APIView):
         """일정 삭제"""
         schedule = self.get_object(pk, request.user)
         if not schedule:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"success": False, "message": "인증에 실패했습니다."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        
         schedule.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
-class MonthlyScheduleView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        """월별 일정 조회"""
-        year = request.query_params.get('year')
-        month = request.query_params.get('month')
-        
-        try:
-            date = datetime(int(year), int(month), 1)
-            schedules = Schedule.objects.filter(
-                user=request.user,
-                date__year=date.year,
-                date__month=date.month
-            )
-            serializer = ScheduleSerializer(schedules, many=True)
-            return Response(serializer.data)
-        except (ValueError, TypeError):
-            return Response(
-                {"error": "Invalid year or month parameter"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-class DailyScheduleView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        """일별 일정 조회"""
-        date_str = request.query_params.get('date')
-        
-        try:
-            date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            schedules = Schedule.objects.filter(
-                user=request.user,
-                date=date
-            )
-            serializer = ScheduleSerializer(schedules, many=True)
-            return Response(serializer.data)
-        except (ValueError, TypeError):
-            return Response(
-                {"error": "Invalid date parameter"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-class SearchScheduleView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        """일정 검색"""
-        query = request.query_params.get('q', '')
-        if query:
-            schedules = Schedule.objects.filter(
-                user=request.user
-            ).filter(
-                Q(location__icontains=query) |
-                Q(companion__icontains=query) |
-                Q(memo__icontains=query)
-            )
-            serializer = ScheduleSerializer(schedules, many=True)
-            return Response(serializer.data)
         return Response(
-            {"error": "Search query is required"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+                {"success": True, "message": "일정이 삭제되었습니다."},
+                status=status.HTTP_200_OK,
+            )    
+    
+        
+

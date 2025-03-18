@@ -132,8 +132,25 @@ header {
 }
 
 .day.today {
-    background-color: #e3f2fd;
-    border-color: #87CEEB;
+    background-color: #f0f0f0;
+    color: #333;
+    font-weight: bold;
+    border-color: #dddddd;
+}
+
+/* 원 배경 제거 */
+.day.today::before {
+    display: none;
+}
+
+.day.today::after {
+    display: none;
+}
+
+/* 오늘 날짜에 일정이 있을 경우 */
+.day.today.has-event {
+    background-color: #fff3e0;
+    border-color: #ffb74d;
 }
 
 .day.has-event {
