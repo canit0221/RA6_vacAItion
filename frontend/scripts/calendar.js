@@ -207,7 +207,22 @@ class Calendar {
     }
 
     updateCalendarWithSchedules(schedules, weatherData = []) {
-        // 모든 일정 표시 제거
+        // 현재 표시 중인 년월 계산
+        const currentYearMonth = `${this.currentYear}${(this.currentMonth + 1).toString().padStart(2, '0')}`;
+        
+        // 현재 표시 중인 달에 해당하는 날씨 데이터만 필터링
+        const currentMonthWeather = weatherData.filter(w => {
+            return w.date.substring(0, 6) === currentYearMonth;
+        });
+        
+        // 필터링된 날씨 데이터를 일(day)만 포함하는 간단한 형식으로 변환
+        const simplifiedWeather = currentMonthWeather.map(w => {
+            return {
+                date: w.date.slice(-2).replace(/^0/, ''), // "01" → "1" 변환
+                icon: w.icon
+            };
+        });
+        
         document.querySelectorAll('.day').forEach(day => {
             // 기존 콘텐츠 초기화
             day.classList.remove('has-event');
@@ -220,7 +235,7 @@ class Calendar {
             const dateAttr = day.getAttribute('data-date');
             if (!dateAttr) return;
             
-            // 해당 날짜의 일정 확인
+            // 해당 날짜의 일정 확인 (기존 코드와 동일)
             const hasSchedule = schedules.some(schedule => 
                 schedule.date === dateAttr
             );
@@ -229,22 +244,15 @@ class Calendar {
                 day.classList.add('has-event');
             }
             
-            // 날씨 정보 표시
-            if (weatherData && weatherData.length > 0) {
-                // 해당 날짜의 날씨 찾기 (날씨 데이터의 날짜에서 마지막 두 자리만 추출하여 비교)
-                const weatherInfo = weatherData.find(w => {
-                    // 날씨 데이터 날짜에서 마지막 두 자리(일) 추출
-                    const dayFromWeather = w.date.slice(-2).replace(/^0/, ''); // 앞의 0 제거 (01→1)
-                    return dayFromWeather === dateAttr;
-                });
-                
-                if (weatherInfo && weatherInfo.icon) {
-                    // 날씨 아이콘 표시
-                    const weatherIconDiv = document.createElement('div');
-                    weatherIconDiv.className = 'weather-icon';
-                    weatherIconDiv.textContent = weatherInfo.icon;
-                    day.appendChild(weatherIconDiv);
-                }
+            // 날씨 정보 표시 (일정과 유사한 방식으로)
+            const weatherInfo = simplifiedWeather.find(w => w.date === dateAttr);
+            
+            if (weatherInfo && weatherInfo.icon) {
+                // 날씨 아이콘 표시
+                const weatherIconDiv = document.createElement('div');
+                weatherIconDiv.className = 'weather-icon';
+                weatherIconDiv.textContent = weatherInfo.icon;
+                day.appendChild(weatherIconDiv);
             }
         });
     }
@@ -290,16 +298,6 @@ class Calendar {
             
             dayElement.textContent = day;
             dayElement.setAttribute('data-date', day);
-
-            // Add weather icon (mock data)
-            const weatherIcon = document.createElement('span');
-            weatherIcon.className = 'weather-icon';
-            if (Math.random() > 0.5) {
-                weatherIcon.textContent = '☀️';
-            } else {
-                weatherIcon.textContent = '☁️';
-            }
-            dayElement.appendChild(weatherIcon);
 
             // Add click event
             dayElement.addEventListener('click', () => {

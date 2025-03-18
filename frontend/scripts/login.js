@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('username', data.username);
                 
                 // 알림창 없이 바로 채팅 페이지로 이동
-                window.location.href = 'chat.html';
+                window.location.href = 'calendar.html';
             } else {
                 alert(data.message || '로그인에 실패했습니다.');
             }
