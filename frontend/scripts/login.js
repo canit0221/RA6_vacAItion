@@ -1,6 +1,9 @@
 const BACKEND_BASE_URL = 'http://localhost:8000';
 
 document.addEventListener('DOMContentLoaded', () => {
+    // 이미 로그인된 상태인지 확인
+    checkAlreadyLoggedIn();
+    
     const loginForm = document.getElementById('loginForm');
     
     loginForm.addEventListener('submit', async (e) => {
@@ -30,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('username', data.username);
                 
                 // 알림창 없이 바로 채팅 페이지로 이동
-                window.location.href = 'calendar.html';
+                window.location.href = 'chat.html';
             } else {
                 alert(data.message || '로그인에 실패했습니다.');
             }
@@ -40,3 +43,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// 이미 로그인된 상태인지 확인하는 함수
+function checkAlreadyLoggedIn() {
+    // URL 파라미터 확인
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromDeleteAccount = urlParams.get('fromDeleteAccount');
+    
+    // 회원 탈퇴 후 이동한 경우 검사를 건너뜀
+    if (fromDeleteAccount === 'true') {
+        return;
+    }
+    
+    // 액세스 토큰이 있는지 확인
+    const accessToken = localStorage.getItem('access_token');
+    if (accessToken) {
+        // 이미 로그인되어 있다면 채팅 페이지로 이동
+        window.location.href = 'chat.html';
+    }
+}

@@ -89,7 +89,7 @@ function setupEventListeners() {
         navLinks[1].addEventListener('click', function(e) {
             e.preventDefault();
             console.log('프로필 링크 클릭됨');
-            window.location.href = 'edit-profile.html';
+            window.location.href = 'profile.html';
         });
         
         // 로그아웃 링크 (세 번째 링크)
