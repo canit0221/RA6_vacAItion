@@ -222,9 +222,62 @@ class Calendar {
             };
         });
         
-        // 일정 데이터도 비슷한 방식으로 처리
-        // 현재 년월에 해당하는 일정만 필터링하고 일(day) 형식을 맞춤
-        const simplifiedSchedules = Array.isArray(schedules) ? schedules.map(schedule => {
+        // 일정 데이터 처리 - 연월일 모두 확인하도록 개선
+        console.log('캘린더에 표시할 일정:', schedules, '현재 연월:', this.currentYear, this.currentMonth + 1);
+        
+        // 현재 표시 중인 연도와 월에 해당하는 일정만 필터링
+        const currentMonthSchedules = Array.isArray(schedules) ? schedules.filter(schedule => {
+            if (!schedule.date) return false;
+            
+            try {
+                // 날짜 파싱 - 다양한 형식 지원
+                let scheduleYear, scheduleMonth, scheduleDay;
+                
+                // YYYY-MM-DD 형식
+                if (typeof schedule.date === 'string' && schedule.date.includes('-')) {
+                    const parts = schedule.date.split('-');
+                    scheduleYear = parseInt(parts[0], 10);
+                    scheduleMonth = parseInt(parts[1], 10);
+                    scheduleDay = parseInt(parts[2], 10);
+                } 
+                // YYYYMMDD 형식
+                else if (typeof schedule.date === 'string' && schedule.date.length === 8) {
+                    scheduleYear = parseInt(schedule.date.substring(0, 4), 10);
+                    scheduleMonth = parseInt(schedule.date.substring(4, 6), 10);
+                    scheduleDay = parseInt(schedule.date.substring(6, 8), 10);
+                }
+                // Date 객체
+                else if (schedule.date instanceof Date) {
+                    scheduleYear = schedule.date.getFullYear();
+                    scheduleMonth = schedule.date.getMonth() + 1;
+                    scheduleDay = schedule.date.getDate();
+                }
+                // 그 외 형식 (처리 불가능)
+                else {
+                    console.warn('알 수 없는 날짜 형식:', schedule.date);
+                    return false;
+                }
+                
+                // 현재 보고 있는 연도와 월이 일치하는지 확인
+                const isCurrentMonth = scheduleYear === this.currentYear && scheduleMonth === (this.currentMonth + 1);
+                
+                if (isCurrentMonth) {
+                    console.log(`일정 날짜(${scheduleYear}-${scheduleMonth}-${scheduleDay})가 현재 월(${this.currentYear}-${this.currentMonth + 1})과 일치함`);
+                } else {
+                    console.log(`일정 날짜(${scheduleYear}-${scheduleMonth}-${scheduleDay})가 현재 월(${this.currentYear}-${this.currentMonth + 1})과 불일치함`);
+                }
+                
+                return isCurrentMonth;
+            } catch (error) {
+                console.error('일정 날짜 파싱 오류:', error, schedule);
+                return false;
+            }
+        }) : [];
+        
+        console.log('현재 월에 표시할 일정:', currentMonthSchedules);
+        
+        // 간소화된 일정 데이터 생성 (일(day)만 포함)
+        const simplifiedSchedules = currentMonthSchedules.map(schedule => {
             // 일정 날짜에서 일(day) 부분만 추출
             let day = '';
             if (schedule.date) {
@@ -236,7 +289,11 @@ class Calendar {
                 else if (schedule.date.length === 8) {
                     day = schedule.date.slice(-2).replace(/^0/, '');
                 }
-                // 그 외 형식 (일만 있는 경우 등)
+                // Date 객체인 경우
+                else if (schedule.date instanceof Date) {
+                    day = schedule.date.getDate().toString();
+                }
+                // 그 외 형식
                 else {
                     day = schedule.date.toString().replace(/^0/, '');
                 }
@@ -246,7 +303,7 @@ class Calendar {
                 date: day,
                 details: schedule
             };
-        }) : [];
+        });
         
         document.querySelectorAll('.day').forEach(day => {
             // 기존 콘텐츠 초기화
@@ -260,7 +317,7 @@ class Calendar {
             const dateAttr = day.getAttribute('data-date');
             if (!dateAttr) return;
             
-            // 해당 날짜의 일정 확인 (날씨 코드와 동일한 방식으로)
+            // 해당 날짜의 일정 확인
             const hasSchedule = simplifiedSchedules.some(s => s.date === dateAttr);
             
             if (hasSchedule) {

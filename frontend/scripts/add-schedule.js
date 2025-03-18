@@ -141,11 +141,14 @@ async function loadScheduleDirectly() {
             return;
         }
         
-        console.log('불러올 날짜:', dateParam);
+        // 날짜 정규화
+        const normalizedDate = normalizeDate(dateParam);
+        console.log('불러올 정규화된 날짜:', normalizedDate);
         
-        // 선택한 날짜에서 일(day) 추출 (01 → 1, 19 → 19)
-        const selectedDay = dateParam.split('-')[2].replace(/^0/, '');
-        console.log('선택한 날짜의 일:', selectedDay);
+        if (!normalizedDate) {
+            console.error('유효하지 않은 날짜 형식:', dateParam);
+            return;
+        }
         
         // 토큰 가져오기
         const token = localStorage.getItem('access_token');
@@ -154,8 +157,8 @@ async function loadScheduleDirectly() {
             return;
         }
         
-        // 모든 일정 가져오기 (필터링은 프론트엔드에서)
-        const response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/`, {
+        // 해당 날짜의 일정 가져오기 (서버 측 필터링)
+        const response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/?date=${normalizedDate}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -164,12 +167,16 @@ async function loadScheduleDirectly() {
             return;
         }
         
-        // 모든 일정 데이터
-        const allSchedules = await response.json();
-        console.log('가져온 모든 일정:', allSchedules);
+        // 응답 데이터
+        const data = await response.json();
+        console.log('API 응답 데이터:', data);
         
-        // 배열이 아니면 변환
-        const schedules = Array.isArray(allSchedules) ? allSchedules : [allSchedules];
+        // 일정 배열 추출
+        const schedules = Array.isArray(data) ? data : 
+                         (data.schedules && Array.isArray(data.schedules)) ? data.schedules : 
+                         (data ? [data] : []);
+        
+        console.log('처리할 일정 배열:', schedules);
         
         // 각 일정 날짜 출력 (디버깅용)
         schedules.forEach((item, index) => {
@@ -177,36 +184,21 @@ async function loadScheduleDirectly() {
             console.log(`- 날짜: ${item.date}, 장소: ${item.location}`);
         });
         
-        // 일정에서 해당 날짜(일) 찾기
+        // 정확히 일치하는 일정 찾기
         let foundSchedule = null;
         
         for (const schedule of schedules) {
-            // 날짜 형식에 따라 일(day) 추출
-            let scheduleDay = '';
+            if (!schedule.date) continue;
             
-            if (schedule.date) {
-                if (typeof schedule.date === 'string') {
-                    if (schedule.date.includes('-')) {
-                        // YYYY-MM-DD 형식
-                        scheduleDay = schedule.date.split('-')[2].replace(/^0/, '');
-                    } else if (schedule.date.length === 8) {
-                        // YYYYMMDD 형식
-                        scheduleDay = schedule.date.slice(-2).replace(/^0/, '');
-                    } else {
-                        scheduleDay = schedule.date.replace(/^0/, '');
-                    }
-                } else {
-                    scheduleDay = String(schedule.date).replace(/^0/, '');
-                }
-                
-                console.log(`비교: 일정 날짜의 일(${scheduleDay}) vs 선택한 날짜의 일(${selectedDay})`);
-                
-                // 날짜(일)이 일치하면 저장
-                if (scheduleDay === selectedDay) {
-                    console.log('일치하는 일정 찾음:', schedule);
-                    foundSchedule = schedule;
-                    break;
-                }
+            // 날짜 정규화하여 비교
+            const scheduleNormalizedDate = normalizeDate(schedule.date);
+            console.log(`비교: 일정 날짜(${scheduleNormalizedDate}) vs 요청 날짜(${normalizedDate})`);
+            
+            // 전체 날짜가 일치하면 사용
+            if (scheduleNormalizedDate === normalizedDate) {
+                console.log('일치하는 일정 찾음:', schedule);
+                foundSchedule = schedule;
+                break;
             }
         }
         
@@ -531,9 +523,21 @@ async function saveScheduleToDB() {
     // 날짜 확인
     console.log('저장 요청 날짜:', dateParam);
     
-    const location = document.getElementById('location').value;
-    const companion = document.getElementById('companion').value;
-    const memo = document.getElementById('memo').value;
+    // 날짜 정규화 (YYYY-MM-DD 형식으로 변환)
+    const normalizedDate = normalizeDate(dateParam);
+    if (!normalizedDate) {
+        showErrorMessage('유효하지 않은 날짜 형식입니다');
+        isSubmitting = false;
+        return;
+    }
+    
+    // 날짜 파싱 - 연,월,일 분리
+    const [year, month, day] = normalizedDate.split('-').map(num => parseInt(num, 10));
+    console.log(`저장할 날짜 구성요소 - 연도: ${year}, 월: ${month}, 일: ${day}`);
+    
+    const location = document.getElementById('location').value.trim();
+    const companion = document.getElementById('companion').value.trim();
+    const memo = document.getElementById('memo').value.trim();
     
     // 필수 필드 검증
     if (!location) {
@@ -554,7 +558,7 @@ async function saveScheduleToDB() {
     try {
         // 요청 데이터 준비
         const scheduleData = {
-            date: dateParam,
+            date: normalizedDate,
             location: location,
             companion: companion || '',
             memo: memo || ''
@@ -570,30 +574,113 @@ async function saveScheduleToDB() {
             return;
         }
         
-        // 단순화: 항상 POST로 새 일정 생성
-        const apiUrl = `${BACKEND_BASE_URL}/calendar/schedules/`;
+        // 기존 일정이 있는지 먼저 확인 (중복 저장 방지)
+        console.log(`${normalizedDate} 날짜의 일정 조회 중...`);
         
-        const response = await fetch(apiUrl, {
-            method: 'POST',
+        const checkResponse = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/`, {
             headers: {
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${accessToken}`
-            },
-            body: JSON.stringify(scheduleData)
+            }
         });
         
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`서버 오류 (${response.status}): ${errorText}`);
+        if (!checkResponse.ok) {
+            throw new Error(`일정 조회 실패: ${checkResponse.status}`);
         }
         
-        // 성공 메시지
-        showSuccessMessage('일정이 저장되었습니다!');
+        const data = await checkResponse.json();
+        console.log('조회된 모든 일정:', data);
         
-        // 새로운 일정 데이터로 폼 업데이트
-        document.getElementById('location').value = location;
-        document.getElementById('companion').value = companion;
-        document.getElementById('memo').value = memo;
+        // 데이터를 항상 배열로 변환
+        const schedules = Array.isArray(data) ? data :
+                         (data.schedules && Array.isArray(data.schedules)) ? data.schedules :
+                         (data ? [data] : []);
+        
+        console.log('변환된 일정 배열:', schedules);
+        
+        // 정확히 일치하는 일정 찾기 (연-월-일 전체 비교)
+        let existingSchedule = null;
+        
+        for (const schedule of schedules) {
+            if (!schedule.date) continue;
+            
+            // 날짜 정규화하여 비교
+            const scheduleNormalizedDate = normalizeDate(schedule.date);
+            if (!scheduleNormalizedDate) continue;
+            
+            console.log(`비교: 일정 날짜(${scheduleNormalizedDate}) vs 저장 날짜(${normalizedDate})`);
+            
+            // 연, 월, 일이 모두 일치하는지 확인
+            const [scheduleYear, scheduleMonth, scheduleDay] = scheduleNormalizedDate.split('-').map(num => parseInt(num, 10));
+            
+            if (scheduleYear === year && scheduleMonth === month && scheduleDay === day) {
+                console.log('일치하는 기존 일정 찾음 (연,월,일 모두 일치):', schedule);
+                existingSchedule = schedule;
+                break;
+            }
+        }
+        
+        let response;
+        let successMessage;
+        
+        // 기존 일정이 있으면 업데이트(PUT), 없으면 새로 생성(POST)
+        if (existingSchedule) {
+            console.log(`기존 일정(ID: ${existingSchedule.id}) 업데이트 중...`);
+            
+            response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/${existingSchedule.id}/`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify(scheduleData)
+            });
+            
+            successMessage = '일정이 성공적으로 업데이트되었습니다!';
+        } else {
+            console.log('새 일정 생성 중...');
+            
+            response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify(scheduleData)
+            });
+            
+            successMessage = '새 일정이 성공적으로 생성되었습니다!';
+        }
+        
+        // 응답 처리
+        if (response.ok) {
+            const result = await response.json();
+            console.log('서버 응답:', result);
+            
+            // 성공 메시지
+            showSuccessMessage(successMessage);
+            
+            // 새로운 일정 데이터로 폼 업데이트
+            document.getElementById('location').value = location;
+            document.getElementById('companion').value = companion;
+            document.getElementById('memo').value = memo;
+        } else {
+            const errorData = await response.json().catch(e => ({ error: '오류 응답을 파싱할 수 없습니다' }));
+            console.error('저장 실패:', response.status, errorData);
+            
+            // 상세 오류 메시지 표시
+            let errorMsg = `저장 실패: ${response.status}`;
+            
+            // 날짜 오류 특별 처리
+            if (errorData.date) {
+                errorMsg = `날짜 오류: ${errorData.date[0]}`;
+            } else if (errorData.non_field_errors) {
+                errorMsg = errorData.non_field_errors[0];
+            } else if (errorData.detail) {
+                errorMsg = errorData.detail;
+            }
+            
+            showErrorMessage(errorMsg);
+        }
         
     } catch (error) {
         console.error('일정 저장 오류:', error);
@@ -602,7 +689,7 @@ async function saveScheduleToDB() {
         // 저장 버튼 상태 복원
         if (saveBtn) {
             saveBtn.disabled = false;
-            saveBtn.textContent = '현재 페이지에서 저장';
+            saveBtn.textContent = '저장하기';
         }
         
         // 요청 완료 상태로 설정
@@ -730,72 +817,197 @@ async function submitSchedule() {
     isSubmitting = true;
     
     // 필수 데이터 확인
-    const location = document.getElementById('location').value;
+    const location = document.getElementById('location').value.trim();
     if (!location) {
         showErrorMessage('장소를 입력해주세요.');
         document.getElementById('location').focus();
+        isSubmitting = false;
         return;
     }
     
-    // 데이터 준비
-    const urlParams = new URLSearchParams(window.location.search);
-    const dateParam = urlParams.get('date');
-    const companion = document.getElementById('companion').value || '';
-    const memo = document.getElementById('memo').value || '';
-    
-    const scheduleData = {
-        date: formatDateForDjango(dateParam || formatLocalDate(new Date())),
-        location: location,
-        companion: companion,
-        memo: memo
-    };
+    // 버튼 상태 변경
+    const submitBtn = document.querySelector('.submit-btn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '저장 중...';
+    }
     
     try {
-        // 데이터 저장 요청
+        // 데이터 준비
+        const urlParams = new URLSearchParams(window.location.search);
+        const dateParam = urlParams.get('date');
+        if (!dateParam) {
+            throw new Error('날짜 정보가 없습니다.');
+        }
+        
+        // 날짜 정규화
+        const normalizedDate = normalizeDate(dateParam);
+        console.log('정규화된 날짜:', normalizedDate);
+        
+        if (!normalizedDate) {
+            throw new Error('유효하지 않은 날짜 형식입니다.');
+        }
+        
+        const companion = document.getElementById('companion').value.trim();
+        const memo = document.getElementById('memo').value.trim();
+        
+        // 일정 데이터 객체
+        const scheduleData = {
+            date: normalizedDate,
+            location: location,
+            companion: companion || '',
+            memo: memo || ''
+        };
+        
+        console.log('저장할 일정 데이터:', scheduleData);
+        
+        // 토큰 확인
         const accessToken = localStorage.getItem('access_token');
         if (!accessToken) {
-            showErrorMessage('로그인이 필요합니다.');
             window.location.href = 'login.html';
             return;
         }
         
-        // 서버에 데이터 저장 요청 (비동기)
-        fetch(`${BACKEND_BASE_URL}/calendar/schedules/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`
-            },
-            body: JSON.stringify(scheduleData)
-        }).then(response => {
-            console.log('서버 응답 받음:', response.status);
-        }).catch(error => {
-            console.error('서버 요청 에러:', error);
+        // 1. 기존 일정 확인 (같은 날짜의 일정 찾기)
+        console.log('기존 일정 확인 중...');
+        const getResponse = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         
-        // 저장 요청 후 바로 캘린더 페이지로 이동 (Home 버튼처럼)
-        console.log('캘린더 페이지로 즉시 이동합니다.');
+        if (!getResponse.ok) {
+            throw new Error(`일정 조회 실패 (${getResponse.status})`);
+        }
         
-        // 방법 1: 직접 위치 변경 (헤더의 Home 버튼과 동일)
-        window.location.href = 'calendar.html';
+        const data = await getResponse.json();
         
-        // 방법 2: 홈 버튼을 프로그래밍적으로 클릭
-        // 바로 이동되지 않을 경우를 대비하여 홈 버튼 클릭
-        setTimeout(() => {
-            const homeButton = document.querySelector('nav.main-nav a[href="calendar.html"]');
-            if (homeButton) {
-                console.log('Home 버튼을 프로그래밍적으로 클릭합니다.');
-                homeButton.click();
-            } else {
-                // 방법 3: replace로 시도
-                window.location.replace('calendar.html');
+        // 일정 배열 추출
+        const schedules = Array.isArray(data) ? data : 
+                         (data.schedules && Array.isArray(data.schedules)) ? data.schedules : 
+                         (data ? [data] : []);
+        
+        // 같은 날짜의 일정 찾기
+        const [year, month, day] = normalizedDate.split('-').map(num => parseInt(num, 10));
+        
+        let existingSchedule = null;
+        for (const schedule of schedules) {
+            if (!schedule.date) continue;
+            
+            // 날짜 정규화하여 비교
+            const scheduleNormalizedDate = normalizeDate(schedule.date);
+            if (!scheduleNormalizedDate) continue;
+            
+            console.log(`비교: 일정 날짜(${scheduleNormalizedDate}) vs 저장 날짜(${normalizedDate})`);
+            
+            // 연, 월, 일이 모두 일치하는지 확인
+            const [scheduleYear, scheduleMonth, scheduleDay] = scheduleNormalizedDate.split('-').map(num => parseInt(num, 10));
+            
+            if (scheduleYear === year && scheduleMonth === month && scheduleDay === day) {
+                console.log('일치하는 기존 일정 찾음:', schedule);
+                existingSchedule = schedule;
+                break;
             }
-        }, 100);
+        }
+        
+        let response;
+        
+        // 2. 기존 일정이 있으면 업데이트, 없으면 새로 생성
+        if (existingSchedule) {
+            console.log(`기존 일정(ID: ${existingSchedule.id}) 업데이트 중...`);
+            
+            response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/${existingSchedule.id}/`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify(scheduleData)
+            });
+        } else {
+            console.log('새 일정 생성 중...');
+            
+            response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify(scheduleData)
+            });
+        }
+        
+        // 3. 응답 처리
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('일정 저장 실패:', response.status, errorData);
+            
+            let errorMsg = `일정 저장 실패 (${response.status})`;
+            if (errorData.date) {
+                errorMsg = `날짜 오류: ${errorData.date[0]}`;
+            } else if (errorData.detail) {
+                errorMsg = errorData.detail;
+            }
+            
+            throw new Error(errorMsg);
+        }
+        
+        // 4. 성공 메시지 표시
+        showSuccessMessage('일정이 저장되었습니다. 캘린더로 이동합니다.');
+        console.log('일정 저장 성공. 캘린더 페이지로 이동 시도 시작');
+        
+        // 5. 다양한 방법으로 캘린더 페이지 이동 시도
+        
+        // 방법 1: 직접 window.location.href 변경 (기본 방법)
+        try {
+            console.log('페이지 이동 방법 1 시도');
+            window.location.href = 'calendar.html';
+        } catch (e) {
+            console.error('페이지 이동 방법 1 실패:', e);
+        }
+        
+        // 방법 2: setTimeout으로 지연 후 이동 시도
+        setTimeout(() => {
+            try {
+                console.log('페이지 이동 방법 2 시도');
+                window.location.replace('calendar.html');
+            } catch (e) {
+                console.error('페이지 이동 방법 2 실패:', e);
+                
+                // 방법 3: window.open 사용
+                try {
+                    console.log('페이지 이동 방법 3 시도');
+                    window.open('calendar.html', '_self');
+                } catch (e2) {
+                    console.error('페이지 이동 방법 3 실패:', e2);
+                    
+                    // 방법 4: 홈 버튼 찾아서 클릭
+                    const homeButton = document.querySelector('a[href="calendar.html"]');
+                    if (homeButton) {
+                        console.log('홈 버튼 발견, 클릭 시도');
+                        homeButton.click();
+                    } else {
+                        console.error('홈 버튼을 찾을 수 없음');
+                        
+                        // 방법 5: history API 사용
+                        console.log('페이지 이동 방법 5 시도');
+                        window.history.pushState({}, '', 'calendar.html');
+                        window.location.reload();
+                    }
+                }
+            }
+        }, 500);
+        
     } catch (error) {
         console.error('일정 제출 오류:', error);
+        showErrorMessage(`오류: ${error.message}`);
     } finally {
-        // 요청 완료 상태로 설정
-        isSubmitting = false;
+        // 버튼 상태 복원 (에러 발생 시에만 필요)
+        if (isSubmitting) { // 이미 페이지 이동 중이 아닌 경우에만
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '저장 후 캘린더로 이동';
+            }
+            isSubmitting = false;
+        }
     }
 }
 
@@ -860,111 +1072,130 @@ async function logout() {
 
 // 특정 날짜의 일정 불러오기
 async function fetchScheduleForDate(date) {
-    console.log(`${date} 날짜의 일정을 불러오는 중...`);
+    console.log('새로운 일정 불러오기 함수 실행:', date);
     
     try {
-        const accessToken = localStorage.getItem('access_token');
-        if (!accessToken) return;
+        // 1. 접근 토큰 확인
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            showErrorMessage('로그인이 필요합니다');
+            return;
+        }
         
-        // API 호출
-        const response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/`, {
-            headers: { 'Authorization': `Bearer ${accessToken}` }
+        // 2. 날짜 정규화 - YYYY-MM-DD 형식 확보
+        const normalizedDate = normalizeDate(date);
+        console.log('정규화된 날짜:', normalizedDate);
+        
+        if (!normalizedDate) {
+            console.error('유효하지 않은 날짜 형식:', date);
+            return;
+        }
+        
+        // 날짜 파싱
+        const [year, month, day] = normalizedDate.split('-').map(num => parseInt(num, 10));
+        console.log(`파싱된 날짜 - 연도: ${year}, 월: ${month}, 일: ${day}`);
+        
+        // 3. 해당 날짜로 직접 API 요청 (서버 측 필터링)
+        const response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/?date=${normalizedDate}`, {
+            headers: {'Authorization': `Bearer ${token}`}
         });
         
-        if (!response.ok) return;
+        if (!response.ok) {
+            console.error('API 오류:', response.status);
+            return;
+        }
         
-        // 응답 데이터 파싱
+        // 4. 응답 데이터 가져오기
         const data = await response.json();
-        console.log('받은 데이터:', data);
+        console.log('API 응답 데이터:', data);
         
-        // 일정 데이터 추출 (schedules 속성이 있으면 사용, 아니면 전체 사용)
-        const allSchedules = data.schedules || data;
+        // 5. 배열 형태로 변환
+        let schedules = [];
+        if (Array.isArray(data)) {
+            schedules = data;
+        } else if (data.schedules && Array.isArray(data.schedules)) {
+            schedules = data.schedules;
+        } else if (typeof data === 'object' && data !== null) {
+            schedules = [data]; // 객체 하나면 배열로 변환
+        }
         
-        // 배열이 아니면 빈 배열로 설정
-        const schedules = Array.isArray(allSchedules) ? allSchedules : [];
         console.log('처리할 일정 배열:', schedules);
         
-        // 선택한 날짜에서 일(day) 추출
-        const selectedDay = date.split('-')[2].replace(/^0/, '');
-        console.log('선택한 날의 일:', selectedDay);
-        
-        // 해당 날짜의 일정 찾기
-        const matchingSchedule = schedules.find(schedule => {
-            if (!schedule.date) return false;
-            
-            // date가 문자열인지 확인
-            const dateStr = String(schedule.date);
-            
-            // 날짜 형식에 따라 일 추출
-            let scheduleDay;
-            if (dateStr.includes('-')) {
-                // YYYY-MM-DD 형식
-                scheduleDay = dateStr.split('-')[2].replace(/^0/, '');
-            } else {
-                // 다른 형식 (마지막 두 자리가 일)
-                scheduleDay = dateStr.slice(-2).replace(/^0/, '');
+        // 6. 일정 목록 출력 (디버깅용)
+        schedules.forEach((item, i) => {
+            console.log(`일정 ${i+1}:`, item);
+            if (item.date) {
+                console.log(`- 날짜: ${item.date}, 장소: ${item.location}`);
+                
+                // 날짜 구성요소 분석
+                const itemDate = normalizeDate(item.date);
+                if (itemDate) {
+                    const [itemYear, itemMonth, itemDay] = itemDate.split('-').map(num => parseInt(num, 10));
+                    console.log(`- 구성요소: 연도=${itemYear}, 월=${itemMonth}, 일=${itemDay}`);
+                    console.log(`- 원하는 날짜와 일치: ${itemYear === year && itemMonth === month && itemDay === day}`);
+                }
             }
-            
-            console.log(`일정: ${schedule.location}, 날짜: ${schedule.date}, 일: ${scheduleDay}, 비교: ${selectedDay}`);
-            return scheduleDay === selectedDay;
         });
         
-        // 일정을 찾았으면 폼에 데이터 채우기
-        if (matchingSchedule) {
-            console.log('일치하는 일정 찾음:', matchingSchedule);
+        // 7. 정규화된 날짜가 일치하는 일정 찾기
+        let foundSchedule = null;
+        for (const item of schedules) {
+            if (!item.date) continue;
             
-            document.getElementById('location').value = matchingSchedule.location || '';
-            document.getElementById('companion').value = matchingSchedule.companion || '';
-            document.getElementById('memo').value = matchingSchedule.memo || '';
+            // 모든 날짜를 YYYY-MM-DD 형식으로 정규화
+            const itemNormalizedDate = normalizeDate(item.date);
+            if (!itemNormalizedDate) continue;
             
-            showInfoMessage('일정을 불러왔습니다.');
+            console.log(`일정 날짜: ${item.date}, 정규화: ${itemNormalizedDate}, 비교 날짜: ${normalizedDate}`);
+            
+            // 연, 월, 일이 모두 일치하는지 확인
+            const [itemYear, itemMonth, itemDay] = itemNormalizedDate.split('-').map(num => parseInt(num, 10));
+            
+            if (itemYear === year && itemMonth === month && itemDay === day) {
+                console.log('일치하는 일정 찾음 (연,월,일 모두 일치):', item);
+                foundSchedule = item;
+                break;
+            }
+        }
+        
+        // 8. 일정이 있으면 폼에 데이터 표시
+        if (foundSchedule) {
+            console.log('폼에 데이터 채우는 중...');
+            
+            // a. 요소 찾기
+            const locationInput = document.getElementById('location');
+            const companionInput = document.getElementById('companion');
+            const memoInput = document.getElementById('memo');
+            
+            // b. 데이터 채우기 (null 체크 포함)
+            if (locationInput) locationInput.value = foundSchedule.location || '';
+            if (companionInput) companionInput.value = foundSchedule.companion || '';
+            if (memoInput) memoInput.value = foundSchedule.memo || '';
+            
+            // c. 성공 메시지
+            showSuccessMessage('일정을 불러왔습니다');
+            return true;
         } else {
-            console.log('일치하는 일정 없음');
-            
+            console.log('일치하는 일정을 찾지 못했습니다');
             // 폼 초기화
-            document.getElementById('location').value = '';
-            document.getElementById('companion').value = '';
-            document.getElementById('memo').value = '';
+            const locationInput = document.getElementById('location');
+            const companionInput = document.getElementById('companion');
+            const memoInput = document.getElementById('memo');
+            
+            if (locationInput) locationInput.value = '';
+            if (companionInput) companionInput.value = '';
+            if (memoInput) memoInput.value = '';
+            
+            return false;
         }
     } catch (error) {
         console.error('일정 불러오기 오류:', error);
-        console.error('삭제 처리 오류:', error);
-        window.deleteInProgress = false;
+        showErrorMessage('일정을 불러오는 중 오류가 발생했습니다');
+        return false;
     }
-};
-
-// 전역 함수 명시적 등록 (파일 하단에 추가)
-console.log('[디버그] 전역 함수 등록 시작');
-try {
-    // deleteSchedule 함수 등록 확인
-    console.log('[디버그] deleteSchedule 함수 타입(등록 전):', typeof window.deleteSchedule);
-    // deleteSchedule은 이미 window 객체에 등록됨
-    console.log('[디버그] deleteSchedule 함수 타입(등록 후):', typeof window.deleteSchedule);
-    
-    // DOMContentLoaded 이벤트 리스너 
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('[디버그] DOMContentLoaded 이벤트 발생');
-        console.log('[디버그] 문서 로드 완료 시점의 deleteSchedule 함수 타입:', typeof window.deleteSchedule);
-        
-        // setupForm 함수 실행
-        setupForm();
-    });
-    
-    console.log('[디버그] 전역 함수 등록 및 초기화 완료');
-} catch (e) {
-    console.error('[디버그] 전역 함수 등록 오류:', e);
 }
 
-// 디버그 코드: 상수 확인
-console.log('[디버그-JS] 상수 확인');
-console.log('[디버그-JS] BACKEND_BASE_URL:', BACKEND_BASE_URL);
-console.log('[디버그-JS] ACCESS_TOKEN_KEY:', ACCESS_TOKEN_KEY);
-console.log('[디버그-JS] 로컬 스토리지 토큰:', localStorage.getItem(ACCESS_TOKEN_KEY));
-
-// 전역 함수 명시적 등록 (파일 하단에 추가)
-window.saveScheduleToDB = saveScheduleToDB;
-window.submitSchedule = submitSchedule;
-
+// 일정 삭제 함수
 window.deleteSchedule = function() {
     console.log('[디버그] deleteSchedule 함수 시작');
     
@@ -987,6 +1218,20 @@ window.deleteSchedule = function() {
             return;
         }
         
+        // 날짜 정규화
+        const normalizedDate = normalizeDate(dateParam);
+        console.log('[디버그] 정규화된 날짜:', normalizedDate);
+        
+        if (!normalizedDate) {
+            showErrorMessage('유효하지 않은 날짜 형식입니다.');
+            window.deleteInProgress = false;
+            return;
+        }
+        
+        // 날짜를 연월일로 분리
+        const [year, month, day] = normalizedDate.split('-').map(num => parseInt(num, 10));
+        console.log(`[디버그] 삭제할 날짜 구성요소 - 연도: ${year}, 월: ${month}, 일: ${day}`);
+        
         // 토큰 확인
         const token = localStorage.getItem('access_token');
         if (!token) {
@@ -1008,33 +1253,45 @@ window.deleteSchedule = function() {
             deleteBtn.textContent = '삭제 중...';
         }
         
-        // 선택한 날짜에서 일(day) 추출
-        const selectedDay = dateParam.split('-')[2].replace(/^0/, '');
-        
-        // 모든 일정 가져오기
+        // 모든 일정 조회 (서버측 필터링 사용하지 않음)
         fetch(`${BACKEND_BASE_URL}/calendar/schedules/`, {
             headers: { 'Authorization': `Bearer ${token}` }
         })
         .then(response => response.json())
         .then(data => {
-            // API 응답 형식에 따라 일정 배열 추출
-            const allSchedules = data.schedules || data;
-            const schedules = Array.isArray(allSchedules) ? allSchedules : [];
+            // 데이터를 항상 배열로 변환
+            const schedules = Array.isArray(data) ? data :
+                             (data.schedules && Array.isArray(data.schedules)) ? data.schedules :
+                             (data ? [data] : []);
+            console.log('[디버그] 조회된 모든 일정 데이터:', schedules);
             
-            // 날짜와 일치하는 일정 찾기
+            // 일정 로깅 (디버깅용)
+            schedules.forEach((schedule, index) => {
+                console.log(`[디버그] 일정 ${index + 1}:`, schedule.date, schedule.location);
+            });
+            
+            // 정확히 일치하는 일정 찾기 (연-월-일 전체 비교)
             const matchingSchedule = schedules.find(schedule => {
                 if (!schedule.date) return false;
                 
-                // 날짜의 일(day) 부분만 추출
-                const scheduleDay = String(schedule.date).includes('-')
-                    ? schedule.date.split('-')[2].replace(/^0/, '')
-                    : String(schedule.date).slice(-2).replace(/^0/, '');
+                // 날짜 정규화하여 비교
+                const scheduleNormalizedDate = normalizeDate(schedule.date);
+                if (!scheduleNormalizedDate) return false;
                 
-                return scheduleDay === selectedDay;
+                console.log(`[디버그] 비교: 일정 날짜(${scheduleNormalizedDate}) vs 삭제할 날짜(${normalizedDate})`);
+                
+                // 연, 월, 일이 모두 일치하는지 확인
+                const [scheduleYear, scheduleMonth, scheduleDay] = scheduleNormalizedDate.split('-').map(num => parseInt(num, 10));
+                
+                const isMatch = scheduleYear === year && scheduleMonth === month && scheduleDay === day;
+                console.log(`[디버그] 날짜 비교 - 연도: ${scheduleYear}==${year}, 월: ${scheduleMonth}==${month}, 일: ${scheduleDay}==${day}, 일치여부: ${isMatch}`);
+                
+                return isMatch;
             });
             
             if (!matchingSchedule) {
                 showErrorMessage('삭제할 일정을 찾을 수 없습니다.');
+                console.error('[디버그] 삭제할 일정을 찾지 못함. 날짜:', normalizedDate);
                 window.deleteInProgress = false;
                 
                 // 버튼 상태 복원
@@ -1046,6 +1303,8 @@ window.deleteSchedule = function() {
                 return;
             }
             
+            console.log('[디버그] 삭제할 일정 찾음:', matchingSchedule);
+            
             // 일정 ID로 삭제 요청
             return fetch(`${BACKEND_BASE_URL}/calendar/schedules/${matchingSchedule.id}/`, {
                 method: 'DELETE',
@@ -1056,6 +1315,8 @@ window.deleteSchedule = function() {
         })
         .then(response => {
             if (!response) return; // 이전 단계에서 오류 발생
+            
+            console.log('[디버그] 삭제 응답 상태:', response.status);
             
             if (response.status === 204 || response.status === 200) {
                 // 삭제 성공
@@ -1108,3 +1369,102 @@ window.deleteSchedule = function() {
         }
     }
 };
+
+// 전역 함수로 명시적 등록 (파일 끝에 추가)
+window.saveScheduleToDB = saveScheduleToDB;
+window.submitSchedule = submitSchedule;
+window.deleteSchedule = deleteSchedule;
+
+// 날짜 정규화 함수 - 다양한 형식을 YYYY-MM-DD로 통일
+function normalizeDate(dateInput) {
+    console.log('정규화할 날짜 입력:', dateInput);
+    
+    if (!dateInput) return null;
+    
+    try {
+        // 이미 YYYY-MM-DD 형식이면 그대로 반환
+        if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+            console.log('이미 정규화된 형식:', dateInput);
+            return dateInput;
+        }
+        
+        let date;
+        
+        // 문자열 형식 처리
+        if (typeof dateInput === 'string') {
+            // ISO 형식 (YYYY-MM-DDT00:00:00) 처리
+            if (dateInput.includes('T')) {
+                dateInput = dateInput.split('T')[0];
+                console.log('ISO 형식에서 날짜 부분만 추출:', dateInput);
+                
+                // 이미 YYYY-MM-DD 형식이면 그대로 반환
+                if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+                    return dateInput;
+                }
+            }
+            
+            // YYYYMMDD 형식
+            if (/^\d{8}$/.test(dateInput)) {
+                const year = dateInput.substring(0, 4);
+                const month = dateInput.substring(4, 6);
+                const day = dateInput.substring(6, 8);
+                return `${year}-${month}-${day}`;
+            }
+            // YYYY-MM-DD 형식 (하이픈 포함)
+            else if (dateInput.includes('-')) {
+                const parts = dateInput.split('-');
+                if (parts.length === 3) {
+                    const year = parts[0];
+                    const month = parts[1].padStart(2, '0');
+                    const day = parts[2].padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                }
+            }
+            
+            // 기타 형식 (Date 생성자로 파싱 시도)
+            date = new Date(dateInput);
+        }
+        // Date 객체 처리
+        else if (dateInput instanceof Date) {
+            date = dateInput;
+        }
+        // 숫자 형식 (타임스탬프)
+        else if (typeof dateInput === 'number') {
+            date = new Date(dateInput);
+        }
+        // 객체 형식 (예: {year: 2023, month: 5, day: 15})
+        else if (typeof dateInput === 'object' && dateInput !== null) {
+            if ('year' in dateInput && 'month' in dateInput && 'day' in dateInput) {
+                date = new Date(dateInput.year, dateInput.month - 1, dateInput.day);
+            } else if ('date' in dateInput) {
+                // 재귀적으로 date 속성 처리
+                return normalizeDate(dateInput.date);
+            } else {
+                console.error('지원되지 않는 객체 형식:', dateInput);
+                return null;
+            }
+        } else {
+            console.error('지원되지 않는 날짜 형식:', dateInput);
+            return null;
+        }
+        
+        // 유효한 날짜인지 확인
+        if (isNaN(date.getTime())) {
+            console.error('유효하지 않은 날짜:', dateInput);
+            return null;
+        }
+        
+        // YYYY-MM-DD 형식으로 변환 (로컬 시간대 기준)
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        
+        const normalized = `${year}-${month}-${day}`;
+        console.log('정규화된 날짜:', normalized);
+        
+        return normalized;
+    } catch (error) {
+        console.error('날짜 정규화 오류:', error);
+        return null;
+    }
+}
