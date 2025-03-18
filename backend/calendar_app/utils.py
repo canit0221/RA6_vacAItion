@@ -82,44 +82,43 @@ def get_short_term_weather(nx=60, ny=127):
         today = datetime.datetime.today().strftime("%Y%m%d")
         base_time = get_base_time()
         
-        params = {
-            "serviceKey": SERVICE_KEY,
-            "numOfRows": "300",  # 더 많은 데이터를 위해 증가
-            "pageNo": "1",
-            "dataType": "JSON",
-            "base_date": today,
-            "base_time": base_time,
-            "nx": nx,
-            "ny": ny,
-        }
+        # Postman과 동일한 방식으로 URL 직접 구성
+        url = f"http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
+        url += f"?serviceKey={SERVICE_KEY}"
+        url += f"&numOfRows=300&pageNo=1&dataType=JSON"
+        url += f"&base_date={today}&base_time={base_time}"
+        url += f"&nx={nx}&ny={ny}"
         
         logger.info(f"단기예보 API 호출: 날짜={today}, 기준시간={base_time}")
-        response = requests.get(KMA_SHORT_API, params=params, timeout=15)
+        logger.info(f"요청 URL: {url}")
+        
+        response = requests.get(url, timeout=15)
+        
+        logger.info(f"단기예보 API 응답 상태 코드: {response.status_code}")
         
         if response.status_code != 200:
             logger.error(f"단기예보 API 오류: 상태 코드 {response.status_code}")
-            return get_sample_hourly_weather()  # 샘플 데이터 반환
+            return []
             
         data = response.json()
         
         if "response" not in data or "body" not in data["response"] or "items" not in data["response"]["body"]:
             logger.error("단기예보 API 응답 형식 오류")
-            return get_sample_hourly_weather()  # 샘플 데이터 반환
+            return []
 
         items = data["response"]["body"]["items"]["item"]
         
         # 날짜-시간별 데이터 저장 (키: "날짜_시간")
         weather_data = {}
         
-        # 4시간 간격으로 6개 시간대 설정 (하루 24시간 커버)
+        # 4시간 간격으로 6개 시간대 설정
         target_times = ["0000", "0400", "0800", "1200", "1600", "2000"]
         
         for item in items:
             date = item["fcstDate"]
             time = item["fcstTime"]
             
-            # API가 제공하는 시간이 정확히 4시간 간격이 아닐 수 있으므로 가장 가까운 시간대로 매핑
-            # 예: 0300은 0400에 가까우므로 0400으로 처리
+            # 가장 가까운 시간대로 매핑
             matching_time = get_nearest_time(time, target_times)
             
             if not matching_time:
@@ -183,16 +182,16 @@ def get_short_term_weather(nx=60, ny=127):
         # 날짜와 시간순으로 정렬
         result.sort(key=lambda x: (x["date"], x["time"]))
         
-        # 결과가 없으면 샘플 데이터 반환
+        # 결과가 없으면 빈 배열 반환
         if not result:
-            logger.warning("처리된 날씨 데이터가 없습니다. 샘플 데이터 사용")
-            return get_sample_hourly_weather()
+            logger.warning("처리된 날씨 데이터가 없습니다.")
+            return []
             
         logger.info(f"단기예보 처리 결과: {len(result)}개 항목 생성")
         return result
     except Exception as e:
         logger.error(f"단기예보 처리 오류: {str(e)}")
-        return get_sample_hourly_weather()  # 오류 발생 시 샘플 데이터 반환
+        return []
 
 def get_nearest_time(time_str, target_times):
     """
@@ -412,57 +411,34 @@ def get_full_weather():
         logger.info(f"중기예보 데이터 개수: {len(mid_term_data) if mid_term_data else 0}")
         
         if not mid_term_data:
-            mid_term_data = generate_sample_weather_data()
-            logger.info("중기예보 데이터 없음, 샘플 데이터 사용")
+            logger.warning("중기예보 데이터를 가져오지 못했습니다.")
+            mid_term_data = []
         
-        # 3. 오늘 날짜에 단기예보 적용, 나머지 날짜에 중기예보 적용
         final_weather_data = []
         
-        # 단기예보에서 오늘 데이터 추출 및 로깅
-        logger.info(f"단기예보 데이터 모두 출력: {short_term_data}")
-        
-        # 단기예보에서 오늘 데이터만 추출
-        today_data = None
-        for item in short_term_data:
-            logger.info(f"단기예보 항목 날짜 비교: {item['date']} vs 오늘({today_str})")
-            if item["date"] == today_str:
-                if "icon" in item and item["icon"] is not None:
-                    today_data = item
-                    logger.info(f"오늘 단기예보 데이터 찾음: {item}")
-                    break
-                else:
-                    logger.warning(f"오늘 단기예보 데이터에 아이콘 없음: {item}")
-        
-        # 오늘 날짜 단기예보 추가
-        if today_data:
-            final_weather_data.append(today_data)
-            logger.info(f"오늘 날씨 단기예보 적용: {today_str} - {today_data['icon']}")
+        # 오늘 날짜의 단기예보 데이터만 추가 (단기예보 데이터가 없어도 중기예보 데이터 사용하지 않음)
+        today_data_list = [item for item in short_term_data if item["date"] == today_str]
+        if today_data_list:
+            final_weather_data.extend(today_data_list)
+            logger.info(f"오늘 날씨 단기예보 적용: {len(today_data_list)}개 시간대")
         else:
-            logger.warning("오늘 단기예보 데이터를 찾지 못함")
-            # 중기예보에서 오늘 데이터 사용
-            for item in mid_term_data:
-                if item["date"] == today_str:
-                    final_weather_data.append(item)
-                    logger.info(f"오늘 날씨 중기예보로 대체: {today_str} - {item['icon']}")
-                    break
+            logger.warning("오늘 단기예보 데이터를 찾지 못했습니다. 오늘 날씨 정보가 없습니다.")
+            # 여기서 중기예보 데이터를 사용하지 않음 (오늘 데이터 없음)
         
-        # 나머지 날짜는 중기예보 적용
-        for item in mid_term_data:
-            # 오늘 날짜는 이미 추가했으므로 건너뜀
-            if item["date"] == today_str:
-                continue
-            final_weather_data.append(item)
+        # 나머지 날짜는 중기예보만 적용 (오늘 날짜 제외)
+        future_mid_data = [item for item in mid_term_data if item["date"] != today_str]
+        final_weather_data.extend(future_mid_data)
+        logger.info(f"미래 날짜 중기예보 적용: {len(future_mid_data)}개 날짜")
         
         # 날짜순 정렬
-        final_weather_data.sort(key=lambda x: x["date"])
+        final_weather_data.sort(key=lambda x: (x["date"], x.get("time", "0000")))
         
         logger.info(f"최종 날씨 데이터 개수: {len(final_weather_data)}")
-        logger.info(f"최종 날씨 데이터: {final_weather_data}")
         
         return final_weather_data
     except Exception as e:
         logger.error(f"날씨 데이터 처리 오류: {str(e)}")
-        return generate_sample_weather_data()
+        return []
 
 # (6) 샘플 날씨 데이터 생성 (API 실패 시 사용)
 def generate_sample_weather_data():
