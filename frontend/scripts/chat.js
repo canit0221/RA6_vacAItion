@@ -443,29 +443,49 @@ function displayChatMessages(messages) {
         contentDiv.className = 'message-content';
         
         // 메시지 내용을 처리
-        if (isBot && window.marked) {
-            // 마크다운 처리 옵션 설정
-            marked.setOptions({
-                breaks: true,        // 줄바꿈 허용
-                gfm: true,           // GitHub Flavored Markdown 사용
-                headerIds: false,    // 헤더 ID 생성 비활성화
-                mangle: false        // 이메일 주소 변경 방지
-            });
-            
-            // 마크다운을 HTML로 변환
-            contentDiv.innerHTML = marked.parse(message.content);
+        if (isBot) {
+            try {
+                // HTML 태그가 이미 포함된 경우 직접 사용, 그렇지 않은 경우 마크다운 변환
+                if (message.content.includes('<b>') || message.content.includes('<i>') || message.content.includes('<u>')) {
+                    console.log('HTML 태그가 발견되어 직접 렌더링:', message.content.substring(0, 50) + '...');
+                    // 줄바꿈 문자(\n)를 <br> 태그로 변환 (HTML 태그 사용 시)
+                    let content = message.content.replace(/\n/g, '<br>');
+                    contentDiv.innerHTML = content;
+                } 
+                // 마크다운 렌더링을 위한 설정
+                else if (typeof marked !== 'undefined') {
+                    // 마크다운 처리 옵션 설정
+                    marked.setOptions({
+                        breaks: true,        // 줄바꿈 허용
+                        gfm: true,           // GitHub Flavored Markdown 사용
+                        headerIds: false,    // 헤더 ID 생성 비활성화
+                        mangle: false,       // 이메일 주소 변경 방지
+                        sanitize: false      // HTML 허용 (주의: XSS 위험)
+                    });
+                    
+                    // 마크다운을 HTML로 변환
+                    contentDiv.innerHTML = marked.parse(message.content);
+                    console.log('마크다운으로 처리됨 (히스토리):', message.content.substring(0, 50) + '...');
+                } else {
+                    console.warn('Marked 라이브러리가 로드되지 않았습니다.');
+                    // 마크다운 없이 표시할 때도 줄바꿈 보존
+                    contentDiv.innerHTML = message.content.replace(/\n/g, '<br>');
+                }
+            } catch (error) {
+                console.error('마크다운 처리 중 오류:', error);
+                // 오류 발생 시에도 줄바꿈 보존
+                contentDiv.innerHTML = message.content.replace(/\n/g, '<br>');
+            }
         } else {
-            // 일반 텍스트로 표시
-            const content = document.createElement('p');
-            content.textContent = message.content;
-            contentDiv.appendChild(content);
+            // 사용자 메시지도 줄바꿈 보존
+            contentDiv.innerHTML = message.content.replace(/\n/g, '<br>');
         }
         
         messageDiv.appendChild(contentDiv);
         chatMessages.appendChild(messageDiv);
     });
     
-    // 스크롤을 맨 아래로
+    // 스크롤을 항상 최신 메시지로 이동
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
@@ -526,29 +546,47 @@ function displayMessage(content, isBot) {
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
     
-    // 메시지 내용을 처리
-    if (isBot && window.marked) {
-        // 마크다운 처리 옵션 설정
-        marked.setOptions({
-            breaks: true,        // 줄바꿈 허용
-            gfm: true,           // GitHub Flavored Markdown 사용
-            headerIds: false,    // 헤더 ID 생성 비활성화
-            mangle: false        // 이메일 주소 변경 방지
-        });
-        
-        // 마크다운을 HTML로 변환
-        contentDiv.innerHTML = marked.parse(content);
+    if (isBot) {
+        try {
+            // HTML 태그가 이미 포함된 경우 직접 사용, 그렇지 않은 경우 마크다운 변환
+            if (content.includes('<b>') || content.includes('<i>') || content.includes('<u>')) {
+                console.log('HTML 태그가 발견되어 직접 렌더링:', content.substring(0, 50) + '...');
+                
+                // 줄바꿈 문자(\n)를 <br> 태그로 변환 (HTML 태그 사용 시)
+                content = content.replace(/\n/g, '<br>');
+                contentDiv.innerHTML = content;
+            }
+            // 마크다운 처리
+            else if (typeof marked !== 'undefined') {
+                marked.setOptions({
+                    breaks: true,  // 중요: 마크다운에서 줄바꿈을 활성화
+                    gfm: true,
+                    headerIds: false,
+                    mangle: false,
+                    sanitize: false
+                });
+                
+                contentDiv.innerHTML = marked.parse(content);
+                console.log('마크다운으로 처리됨:', content.substring(0, 50) + '...');
+            } else {
+                console.warn('Marked 라이브러리가 로드되지 않았습니다.');
+                // 마크다운 없이 표시할 때도 줄바꿈 보존
+                contentDiv.innerHTML = content.replace(/\n/g, '<br>');
+            }
+        } catch (error) {
+            console.error('마크다운 처리 중 오류:', error);
+            // 오류 발생 시에도 줄바꿈 보존
+            contentDiv.innerHTML = content.replace(/\n/g, '<br>');
+        }
     } else {
-        // 일반 텍스트로 표시
-        const contentP = document.createElement('p');
-        contentP.textContent = content;
-        contentDiv.appendChild(contentP);
+        // 사용자 메시지도 줄바꿈 보존
+        contentDiv.innerHTML = content.replace(/\n/g, '<br>');
     }
     
     messageDiv.appendChild(contentDiv);
     chatMessages.appendChild(messageDiv);
     
-    // 스크롤을 맨 아래로
+    // 스크롤을 최신 메시지로 이동
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 

@@ -1,5 +1,14 @@
+import os
+import time
+from pathlib import Path
+from langchain_community.vectorstores import Chroma
+from langchain_openai import OpenAIEmbeddings
+from dotenv import load_dotenv
 from .base import GraphState
 from .data_loader import load_data
+
+# 환경 변수 로드
+load_dotenv()
 
 def hybrid_retriever(state: GraphState) -> GraphState:
     """하이브리드 검색 노드
@@ -12,9 +21,27 @@ def hybrid_retriever(state: GraphState) -> GraphState:
     Returns:
         업데이트된 그래프 상태
     """
+    print("\n=== 하이브리드 검색 시작 ===")
+    start_time = time.time()
+    
     question = state["question"]
     is_event = state.get("is_event", False)
     query_info = state.get("query_info", {})
+    
+    # 쿼리가 없는 경우 검색 건너뛰기
+    if not question:
+        print("쿼리가 비어있어 검색을 건너뜁니다.")
+        return {**state, "retrieved_docs": []}
+    
+    # 카테고리 정보 추출
+    district = query_info.get("district")
+    category = query_info.get("category")
+    minor_keywords = query_info.get("minor_keywords", [])
+    
+    print(f"검색어: '{question}'")
+    print(f"지역: {district}")
+    print(f"카테고리: {category}")
+    print(f"소분류 키워드: {minor_keywords}")
     
     # 데이터 로드
     query_type = "event" if is_event else "general"
@@ -24,10 +51,6 @@ def hybrid_retriever(state: GraphState) -> GraphState:
     vector_results = vectorstore.similarity_search(question, k=5)
     
     # 키워드 필터링
-    district = query_info.get("district")
-    category = query_info.get("category")
-    minor_keywords = query_info.get("minor_keywords", [])
-    
     filtered_docs = []
     
     # 구 필터링
@@ -39,8 +62,6 @@ def hybrid_retriever(state: GraphState) -> GraphState:
             if (district.lower() in content or district_name.lower() in content or
                 district.lower() in location or district_name.lower() in location):
                 filtered_docs.append(doc)
-                
-        print(f"구 이름으로 필터링된 문서 수: {len(filtered_docs)}개")
     else:
         filtered_docs = docs
     
@@ -63,16 +84,18 @@ def hybrid_retriever(state: GraphState) -> GraphState:
                     
         if minor_filtered:
             filtered_docs = minor_filtered
-            print(f"마이너 키워드로 필터링된 문서 수: {len(filtered_docs)}개")
     
     # 최종 결과가 없으면 벡터 검색 결과 사용
     if not filtered_docs:
         filtered_docs = vector_results
         
-    # 최대 3개 문서로 제한
-    final_docs = filtered_docs[:3]
+    # 최대 6개 문서로 제한
+    final_docs = filtered_docs[:6]
     
+    elapsed_time = time.time() - start_time
+    print(f"검색 시간: {elapsed_time:.2f}초")
     print(f"최종 검색 결과: {len(final_docs)}개 문서")
+    print("=== 하이브리드 검색 완료 ===\n")
     
     # 상태 업데이트
     return {

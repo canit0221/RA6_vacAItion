@@ -68,7 +68,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     print("유효하지 않은 사용자")
                     await self.close()
                     return
-
+                    
             except jwt.InvalidTokenError as e:
                 print(f"토큰 검증 실패: {e}")
                 await self.close()
@@ -86,19 +86,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # 채널 그룹에 추가
             await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-
+            
             # WebSocket 연결 수락
             await self.accept()
             self._active = True
             _active_connections.add(self)
-            
-            # 연결 확인 메시지 전송
-            await self.send(text_data=json.dumps({
-                "type": "connection_established",
-                "message": "WebSocket 연결이 성공적으로 설정되었습니다.",
-                "is_system": True
-            }))
-            
             print(f"WebSocket 연결 성공: {self.user.username}, 세션: {self.room_name}")
             
         except Exception as e:
@@ -110,12 +102,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         # 채널 그룹에서 제거
         if hasattr(self, "room_group_name"):
-            await self.channel_layer.group_discard(
-                self.room_group_name, self.channel_name
-            )
+            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
         self._active = False
         _active_connections.discard(self)
 
+    # 웹소켓에서 메세지 수신
     async def receive(self, text_data):
         """클라이언트로부터 메시지 수신"""
         print(f"받은 데이터: {text_data}")
@@ -179,7 +170,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "session_id": str(session.id),
                 },
             )
-            
+                
             # LangGraph 실행 (비동기 호출)
             print("=== LangGraph 비동기 호출 시작 ===")
             try:

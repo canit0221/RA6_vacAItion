@@ -242,27 +242,21 @@ main {
 
 .message-content p {
     margin: 0;
+    white-space: pre-wrap;
 }
 
 /* 마크다운 스타일링 */
 .bot .message-content {
     line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
+/* 마크다운 서식 스타일 */
 .bot .message-content strong {
     font-weight: 700;
-    color: #1a73e8;
-}
-
-.bot .message-content ul, 
-.bot .message-content ol {
-    margin-top: 8px;
-    margin-bottom: 8px;
-    padding-left: 20px;
-}
-
-.bot .message-content li {
-    margin-bottom: 4px;
+    color: #0077b6;
 }
 
 .bot .message-content h1, 
@@ -271,10 +265,38 @@ main {
 .bot .message-content h4 {
     margin-top: 12px;
     margin-bottom: 8px;
+    font-weight: 600;
+    color: #222;
+}
+
+.bot .message-content h1 {
+    font-size: 1.5rem;
+}
+
+.bot .message-content h2 {
+    font-size: 1.3rem;
+}
+
+.bot .message-content h3 {
+    font-size: 1.1rem;
+}
+
+.bot .message-content ul, 
+.bot .message-content ol {
+    padding-left: 20px;
+    margin-bottom: 10px;
+}
+
+.bot .message-content li {
+    margin-bottom: 4px;
+}
+
+.bot .message-content p + p {
+    margin-top: 10px;
 }
 
 .bot .message-content a {
-    color: #2962ff;
+    color: #0077b6;
     text-decoration: none;
 }
 
@@ -282,11 +304,32 @@ main {
     text-decoration: underline;
 }
 
+.bot .message-content code {
+    background-color: #f0f0f0;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.bot .message-content pre {
+    background-color: #f0f0f0;
+    padding: 10px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin-bottom: 10px;
+}
+
 .bot .message-content blockquote {
-    border-left: 4px solid #ddd;
-    padding-left: 12px;
-    margin-left: 0;
-    color: #666;
+    border-left: 4px solid #87CEEB;
+    padding-left: 10px;
+    color: #555;
+    margin: 10px 0;
+}
+
+/* 이모티콘 관련 스타일 */
+.bot .message-content .emoji {
+    font-size: 1.2em;
 }
 
 .chat-input {
