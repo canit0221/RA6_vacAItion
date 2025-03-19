@@ -161,7 +161,7 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Channels 설정 추가
-ASGI_APPLICATION = "vacation.routing.application"
+ASGI_APPLICATION = "vacation.asgi.application"
 
 # Channel Layers 설정
 CHANNEL_LAYERS = {
@@ -212,3 +212,35 @@ LOGIN_REDIRECT_URL = "/chat/"
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_AGE = 86400  # 24시간
 SESSION_COOKIE_SECURE = False  # HTTPS 사용 시 True로 변경
+
+# 로깅 설정
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'channels': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'chatbot': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
