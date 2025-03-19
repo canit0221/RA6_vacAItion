@@ -96,24 +96,24 @@ PTY_ICON_MAP = {
 }
 
 def get_short_term_weather(nx=60, ny=127):
-    """단기예보 (오늘~3일 후)에서 하루 6번 아이콘만 반환"""
+    """단기예보 (오늘~3일 후)에서 필요한 시간대만 반환"""
     try:
-        today = datetime.datetime.today().strftime("%Y%m%d")  # 오늘 날짜
+        today = datetime.datetime.today()
+        today_str = today.strftime("%Y%m%d")  # 오늘 날짜
         base_time = "0500"  # 예보 발표 시간
         
-        logger.info(f"단기예보 API 호출: 날짜={today}, 기준시간={base_time}")
+        # 오늘, 내일의 모든 시간대
+        full_times = ["0600", "0900", "1200", "1500", "1800", "2100"]
+        # 모레, 글피의 시간대 (오전/오후 각 1번씩)
+        reduced_times = ["0900", "1800"]
         
         # Postman과 동일한 방식으로 URL 직접 구성
         url = f"{KMA_SHORT_API}?serviceKey={SERVICE_KEY}"
         url += f"&numOfRows=1000&pageNo=1&dataType=JSON"
-        url += f"&base_date={today}&base_time={base_time}"
+        url += f"&base_date={today_str}&base_time={base_time}"
         url += f"&nx={nx}&ny={ny}"
         
-        logger.info(f"요청 URL: {url}")
-        
         response = requests.get(url, timeout=15)
-        
-        logger.info(f"단기예보 API 응답 상태 코드: {response.status_code}")
         
         if response.status_code != 200:
             logger.error(f"단기예보 API 오류: 상태 코드 {response.status_code}")
@@ -126,35 +126,37 @@ def get_short_term_weather(nx=60, ny=127):
             return []
             
         items = data["response"]["body"]["items"]["item"]
-        logger.info(f"API 응답 항목 수: {len(items)}")
         
         # 날짜-시간별 데이터 저장
         weather_data = {}
-        today_int = int(today)  # 오늘 날짜 정수형
         
-        # 먼저 필요한 날짜와 시간 조합 생성 (오늘부터 3일간, 6개 시간대)
-        needed_date_times = set()
+        # 각 날짜별 필요한 시간대 미리 정의
+        date_to_times = {}
         for i in range(4):  # 오늘 포함 4일간
-            target_date = datetime.datetime.today() + datetime.timedelta(days=i)
+            target_date = today + datetime.timedelta(days=i)
             target_date_str = target_date.strftime("%Y%m%d")
-            for time in NEEDED_TIMES:
-                needed_date_times.add(f"{target_date_str}_{time}")
-        
-        logger.info(f"필요한 날짜/시간 조합: {len(needed_date_times)}개")
+            
+            if i < 2:  # 오늘, 내일
+                date_to_times[target_date_str] = full_times
+            else:  # 모레, 글피
+                date_to_times[target_date_str] = reduced_times
         
         # 모든 예보 항목 처리
         for item in items:
             fcst_date = item["fcstDate"]  # 예보 날짜 (YYYYMMDD)
             fcst_time = item["fcstTime"]  # 예보 시간 (HHMM)
             
-            # 오늘부터 3일 후까지만 필터링
-            if int(fcst_date) < today_int or int(fcst_date) > today_int + 3:
-                continue
-            
-            # 정확히 지정된 6개 시간대만 필터링
-            if fcst_time not in NEEDED_TIMES:
+            # 해당 날짜가 우리가 처리할 날짜 목록에 없으면 건너뜀
+            if fcst_date not in date_to_times:
                 continue
                 
+            # 해당 날짜에 대한 필요한 시간대 목록 가져오기
+            valid_times = date_to_times[fcst_date]
+            
+            # 시간이 필요한 시간대가 아니면 건너뜀
+            if fcst_time not in valid_times:
+                continue
+            
             # 날짜_시간 형식의 키 생성
             key = f"{fcst_date}_{fcst_time}"
             
@@ -188,8 +190,6 @@ def get_short_term_weather(nx=60, ny=127):
                 if value != "-999":
                     weather_data[key]["pty"] = value
         
-        logger.info(f"필터링 후 날짜/시간별 데이터: {len(weather_data)}개")
-        
         # 두 번째 루프: 아이콘 생성 및 최종 결과물 구성
         result = []
         
@@ -217,30 +217,12 @@ def get_short_term_weather(nx=60, ny=127):
             # 필요 없는 필드 제거
             item.pop("sky", None)
             item.pop("pty", None)
+            
             result.append(item)
         
         # 날짜와 시간순으로 정렬
         result.sort(key=lambda x: (x["date"], x["time"]))
         
-        logger.info(f"최종 단기예보 데이터: {len(result)}개 항목")
-        
-        # 결과가 없으면 샘플 데이터 생성
-        if not result:
-            logger.warning("처리된 날씨 데이터가 없어 샘플 데이터 생성")
-            sample_data = []
-            for i in range(3):  # 오늘부터 2일간
-                date = datetime.datetime.today() + datetime.timedelta(days=i)
-                date_str = date.strftime("%Y%m%d")
-                for time in NEEDED_TIMES:  # 6개 시간대
-                    sample_data.append({
-                        "date": date_str,
-                        "time": time,
-                        "temperature": "15",
-                        "rain_probability": "10",
-                        "icon": "☀️"  # 기본 아이콘
-                    })
-            return sample_data
-            
         return result
     except Exception as e:
         logger.error(f"단기예보 처리 오류: {str(e)}")
