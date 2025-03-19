@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VacAItion - 일정 추가</title>
+    <link rel="stylesheet" href="../styles/add-schedule.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <img src="../logo.png" alt="VacAItion" class="logo-img">
+                <span class="logo-text">VacAItion</span>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="calendar.html">Home</a></li>
+                    <li><a href="profile.html" id="profileLink">Profile</a></li>
+                    <li><a href="#" id="logoutLink" class="logout">Logout</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main class="schedule-container">
+            <div class="schedule-form">
+                <div class="date-section">
+                    <h2 class="month-title">April 2025</h2>
+                    <div class="mini-calendar">
+                        <!-- 미니 캘린더가 JS로 동적 생성됩니다 -->
+                    </div>
+                    <!-- 미니 달력 아래에 캘린더로 돌아가기 버튼 추가 -->
+                    <div class="calendar-link-container">
+                        <button class="calendar-btn" onclick="window.location.href='calendar.html'">캘린더로 돌아가기</button>
+                    </div>
+                </div>
+
+                <div class="schedule-details">
+                    <h3 class="selected-date">2025.04.05 토요일 ⭐</h3>
+                    <div class="form-group">
+                        <label>Where?</label>
+                        <input type="text" id="location" placeholder="구 또는 동 단위로 입력 (예: 강남구, 삼성동, 자양1동)" class="form-control" oninput="validateLocationInput(this)" />
+                    </div>
+                    <div class="form-group">
+                        <label>with Who?</label>
+                        <input type="text" id="companion" placeholder="동행인을 입력하세요">
+                    </div>
+                    <div class="form-group">
+                        <label>Memo</label>
+                        <textarea id="memo" placeholder="메모를 입력하세요.&#10;예시) 6시에 강남역 11번 출구에서 만나기"></textarea>
+                    </div>
+                    <div class="button-group">
+                        <!-- 첫 번째 줄: 일정 삭제하기 버튼 -->
+                        <div class="delete-container">
+                            <button class="delete-btn">일정 삭제하기</button>
+                        </div>
+                        
+                        <!-- 두 번째 줄: 저장 버튼들 -->
+                        <div class="save-buttons">
+                            <button class="save-btn">현재 페이지에서 저장</button>
+                            <button class="submit-btn">저장 후 캘린더로 이동</button>
+                        </div>
+                        
+                        <!-- 세 번째 줄: hue 버튼 -->
+                        <div class="hue-container">
+                            <button class="hue-btn">hue랑 일정 생성하기</button>
+                        </div>
+                        
+                        <!-- 숨겨진 캘린더 링크 추가 -->
+                        <a href="calendar.html" id="hiddenCalendarLink" style="display: none;">캘린더로 이동</a>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="../scripts/add-schedule.js"></script>
+    <script>
+        // 페이지 로드 시 즉시 로그 출력
+        console.log('%c[VacAItion 디버그] 페이지 로드됨', 'color: blue; font-size: 16px; font-weight: bold;');
+        console.log('[디버그-HTML] 인라인 스크립트 시작');
+        
+        // 장소 입력 실시간 유효성 검사
+        function validateLocationInput(inputField) {
+            // 기존 오류 메시지와 스타일 제거
+            inputField.classList.remove('error-field');
+            const existingErrorSpan = inputField.parentNode.querySelector('.field-error-message');
+            if (existingErrorSpan) {
+                existingErrorSpan.remove();
+            }
+            
+            const value = inputField.value.trim();
+            if (!value) return; // 값이 비어있으면 검사하지 않음
+            
+            // 검증 함수가 정의되어 있는지 확인
+            if (typeof window.validateLocationFormat === 'function') {
+                const isValid = window.validateLocationFormat(value);
+                
+                if (!isValid) {
+                    // 유효하지 않은 입력일 경우 시각적 피드백 제공
+                    inputField.classList.add('error-field');
+                    
+                    // 인라인 오류 메시지 추가
+                    const errorSpan = document.createElement('span');
+                    errorSpan.className = 'field-error-message';
+                    errorSpan.textContent = '구 또는 동 단위로 입력해주세요. (예: 강남구, 삼성동, 자양1동)';
+                    errorSpan.style.color = '#ff4d4f';
+                    errorSpan.style.fontSize = '12px';
+                    errorSpan.style.display = 'block';
+                    errorSpan.style.marginTop = '5px';
+                    
+                    inputField.parentNode.appendChild(errorSpan);
+                }
+            }
+        }
+        
+        // 함수 정의: 화면에 알림 표시 (인라인 스크립트 전용)
+        function showInlineMessage(message) {
+            console.log('%c[알림]', 'color: green; font-weight: bold;', message);
+            
+            // 직접 메시지 요소 생성
+            const msgElement = document.createElement('div');
+            msgElement.className = 'message info-message';
+            msgElement.style.backgroundColor = '#e6f7ff';
+            msgElement.style.padding = '10px';
+            msgElement.style.margin = '10px 0';
+            msgElement.style.borderLeft = '4px solid #1890ff';
+            msgElement.style.borderRadius = '4px';
+            msgElement.innerHTML = `<span style="margin-right: 8px;">ℹ️</span>${message}`;
+            
+            // 폼 상단에 메시지 삽입
+            const formContainer = document.querySelector('.schedule-details');
+            if (formContainer) {
+                formContainer.prepend(msgElement);
+            } else {
+                // 폼 컨테이너가 없으면 body에 추가
+                document.body.prepend(msgElement);
+            }
+            
+            // 7초 후 메시지 사라지게 하기
+            setTimeout(() => {
+                if (msgElement.parentNode) {
+                    msgElement.style.opacity = '0';
+                    msgElement.style.transition = 'opacity 0.5s';
+                    setTimeout(() => {
+                        if (msgElement.parentNode) {
+                            msgElement.remove();
+                        }
+                    }, 500);
+                }
+            }, 7000);
+        }
+        
+        // 캘린더로 이동하는 직접적인 함수
+        function navigateToCalendar() {
+            console.log('[디버그-HTML] 캘린더로 직접 이동 함수 호출됨');
+            
+            // 폼 데이터 확인
+            const location = document.getElementById('location').value;
+            if (!location) {
+                alert('장소를 입력해주세요.');
+                document.getElementById('location').focus();
+                return;
+            }
+            
+            try {
+                console.log('[디버그-HTML] 캘린더 페이지로 이동');
+                window.location.href = 'calendar.html';
+            } catch (e) {
+                console.error('[디버그-HTML] 이동 오류:', e);
+                // 오류 발생 시 무조건 이동
+                window.location.href = 'calendar.html';
+            }
+        }
+        
+        // 직접 window.deleteSchedule 함수 호출 구현
+        window.addEventListener('load', function() {
+            console.log('%c[VacAItion 디버그] 페이지 완전히 로드됨', 'color: blue; font-size: 16px; font-weight: bold;');
+            
+            // 이벤트 처리 중복 호출 방지를 위한 플래그
+            window.isProcessingDelete = false;
+            
+            // 전역 함수 확인
+            console.log('[디버그-HTML] window.deleteSchedule 유형:', typeof window.deleteSchedule);
+            console.log('[디버그-HTML] window.saveScheduleToDB 유형:', typeof window.saveScheduleToDB);
+            console.log('[디버그-HTML] window.submitSchedule 유형:', typeof window.submitSchedule);
+            
+            // 모든 버튼 확인
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(button => {
+                console.log('[디버그-HTML] 발견된 버튼:', button.className, button.textContent);
+            });
+            
+            // 저장 후 캘린더로 이동 버튼
+            const submitButton = document.querySelector('.submit-btn');
+            if (submitButton) {
+                console.log('[디버그-HTML] 제출 버튼 발견');
+                submitButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('[디버그-HTML] 제출 버튼 클릭됨');
+                    
+                    if (typeof window.submitSchedule === 'function') {
+                        window.submitSchedule();
+                    } else {
+                        navigateToCalendar();
+                    }
+                });
+            }
+            
+            // 현재 페이지에서 저장 버튼
+            const saveButton = document.querySelector('.save-btn');
+            if (saveButton) {
+                console.log('[디버그-HTML] 저장 버튼 발견');
+                saveButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('[디버그-HTML] 저장 버튼 클릭됨');
+                    
+                    if (typeof window.saveScheduleToDB === 'function') {
+                        window.saveScheduleToDB();
+                    } else {
+                        alert('저장 기능을 불러올 수 없습니다. 페이지를 새로고침 해주세요.');
+                    }
+                });
+            }
+            
+            // 일정 삭제 버튼
+            const deleteButton = document.querySelector('.delete-btn');
+            if (deleteButton) {
+                console.log('[디버그-HTML] 삭제 버튼 발견');
+                
+                // 명확하게 모든 이벤트 리스너 제거 (가장 확실한 방법)
+                const newDeleteButton = deleteButton.cloneNode(true);
+                deleteButton.parentNode.replaceChild(newDeleteButton, deleteButton);
+                
+                // 새 이벤트 리스너 등록 (단일 등록 보장)
+                newDeleteButton.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    console.log('[디버그-HTML] 삭제 버튼 클릭됨 (새 핸들러)');
+                    
+                    // 버튼 상태 변경으로 시각적 피드백 제공
+                    newDeleteButton.disabled = true;
+                    newDeleteButton.textContent = '삭제 처리 중...';
+                    newDeleteButton.style.backgroundColor = '#aaaaaa';
+                    
+                    try {
+                        if (typeof window.deleteSchedule === 'function') {
+                            // 지연 없이 직접 함수 호출
+                            console.log('[디버그-HTML] window.deleteSchedule 직접 호출');
+                            window.deleteSchedule();
+                        } else {
+                            console.error('[디버그-HTML] deleteSchedule 함수가 없음');
+                            alert('일정 삭제 기능을 찾을 수 없습니다. 페이지를 새로고침해 주세요.');
+                            // 버튼 상태 복원
+                            newDeleteButton.disabled = false;
+                            newDeleteButton.textContent = '일정 삭제하기';
+                            newDeleteButton.style.backgroundColor = '';
+                        }
+                    } catch (error) {
+                        console.error('[디버그-HTML] 삭제 처리 오류:', error);
+                        alert('일정 삭제 중 오류가 발생했습니다: ' + error.message);
+                        // 버튼 상태 복원
+                        newDeleteButton.disabled = false;
+                        newDeleteButton.textContent = '일정 삭제하기';
+                        newDeleteButton.style.backgroundColor = '';
+                    }
+                });
+                
+                console.log('[디버그-HTML] 새 삭제 버튼 이벤트 설정 완료');
+            }
+            
+            console.log('[디버그-HTML] 이벤트 설정 완료');
+            
+            // hue랑 일정 생성하기 버튼
+            const hueButton = document.querySelector('.hue-btn');
+            if (hueButton) {
+                console.log('[디버그-HTML] hue 버튼 발견');
+                hueButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('%c[HUE 버튼 클릭됨]', 'color: purple; font-size: 18px; font-weight: bold;');
+                    
+                    // 버튼 상태 변경 (시각적 피드백)
+                    this.disabled = true;
+                    this.textContent = 'hue 챗봇으로 이동 중...';
+                    
+                    // 현재 선택된 장소와 동행인 정보 가져오기
+                    const location = document.getElementById('location').value;
+                    const companion = document.getElementById('companion').value;
+                    
+                    // 콘솔에 데이터 출력 (강조 표시)
+                    console.log('%c[챗봇 데이터]', 'background: #8a2be2; color: white; padding: 4px; border-radius: 4px;', {
+                        장소: location || '(입력되지 않음)',
+                        동행인: companion || '(입력되지 않음)'
+                    });
+                    
+                    // URL 파라미터 구성
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const dateParam = urlParams.get('date');
+                    const params = new URLSearchParams();
+                    
+                    // 파라미터 설정
+                    if (location) params.append('location', location);
+                    if (companion) params.append('companion', companion);
+                    if (dateParam) params.append('date', dateParam);
+                    
+                    // 날짜 형식화
+                    const normalizedDate = dateParam || new Date().toISOString().split('T')[0];
+                    
+                    // 날씨 정보 가져오기
+                    (async () => {
+                        try {                            
+                            // 날씨 정보 비동기 요청
+                            const weatherData = await window.fetchWeatherForDate(normalizedDate);
+                            
+                            // 디버깅 로그
+                            console.log('%c[날씨 정보]', 'background: #4CAF50; color: white; padding: 4px; border-radius: 4px;', weatherData);
+                            
+                            // 날씨 정보 추가 (아이콘과 텍스트 모두 전달)
+                            if (weatherData) {
+                                if (weatherData.icon) {
+                                    params.append('weatherIcon', weatherData.icon);
+                                }
+                                if (weatherData.text) {
+                                    params.append('weatherText', weatherData.text);
+                                }
+                                if (weatherData.description) {
+                                    params.append('weatherDescription', weatherData.description);
+                                }
+                            }
+                            
+                            // 챗봇 페이지로 이동 (chat.html)
+                            let targetUrl = 'chat.html';
+                            
+                            // 파라미터가 있으면 URL에 추가
+                            if (params.toString()) {
+                                targetUrl += `?${params.toString()}`;
+                            }
+                            
+                            // 이동 전 메시지 표시
+                            if (location) {
+                                let message = `'${location}'`;
+                                if (companion) message += `, '${companion}'`;
+                                if (weatherData && weatherData.text) {
+                                    message += `, '${weatherData.text}`;
+                                    if (weatherData.icon) message += ` ${weatherData.icon}'`;
+                                    message += ` 정보를 `;
+                                }
+                                message += 'hue 챗봇으로 전달합니다.';
+                                
+                                // 직접 알림 메시지 표시 (함수 호출 대신)
+                                const msgElement = document.createElement('div');
+                                msgElement.className = 'message info-message';
+                                msgElement.style.backgroundColor = '#e6f7ff';
+                                msgElement.style.padding = '10px';
+                                msgElement.style.margin = '10px 0';
+                                msgElement.style.borderLeft = '4px solid #1890ff';
+                                msgElement.style.borderRadius = '4px';
+                                msgElement.innerHTML = `<span style="margin-right: 8px;">ℹ️</span>${message}`;
+                                
+                                const formContainer = document.querySelector('.schedule-details');
+                                if (formContainer) {
+                                    formContainer.prepend(msgElement);
+                                }
+                            } else {
+                                const message = '장소를 입력하면 더 정확한 일정을 생성할 수 있습니다.';
+                                
+                                // 직접 알림 메시지 표시 (함수 호출 대신)
+                                const msgElement = document.createElement('div');
+                                msgElement.className = 'message info-message';
+                                msgElement.style.backgroundColor = '#e6f7ff';
+                                msgElement.style.padding = '10px';
+                                msgElement.style.margin = '10px 0';
+                                msgElement.style.borderLeft = '4px solid #1890ff';
+                                msgElement.style.borderRadius = '4px';
+                                msgElement.innerHTML = `<span style="margin-right: 8px;">ℹ️</span>${message}`;
+                                
+                                const formContainer = document.querySelector('.schedule-details');
+                                if (formContainer) {
+                                    formContainer.prepend(msgElement);
+                                }
+                            }
+                            
+                            // 0.8초 후 챗봇 페이지로 이동 (메시지 표시 시간 확보)
+                            setTimeout(() => {
+                                console.log('[챗봇 이동] 이동할 URL:', targetUrl);
+                                this.textContent = 'hue 챗봇으로 이동 중...';
+                                window.location.href = targetUrl;
+                            }, 800);
+                            
+                        } catch (error) {
+                            console.error('날씨 정보 가져오기 실패:', error);
+                            
+                            // 오류 발생 시에도 계속 진행
+                            let targetUrl = 'chat.html';
+                            if (params.toString()) {
+                                targetUrl += `?${params.toString()}`;
+                            }
+                            
+                            // 0.8초 후 챗봇 페이지로 이동
+                            setTimeout(() => {
+                                console.log('[챗봇 이동] 날씨 없이 이동:', targetUrl);
+                                this.textContent = 'hue 챗봇으로 이동 중...';
+                                window.location.href = targetUrl;
+                            }, 800);
+                        }
+                    })();
+                });
+            }
+        });
+    </script>
+</body>
+</html> 

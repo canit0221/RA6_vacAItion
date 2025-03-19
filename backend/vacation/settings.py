@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     # local apps
     "account.apps.AccountConfig",
     "chatbot.apps.ChatbotConfig",
+    "calendar_app.apps.CalendarAppConfig",
 ]
 
 REST_FRAMEWORK = {
