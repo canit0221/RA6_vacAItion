@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
         categories.forEach(category => {
             const option = document.createElement('option');
             option.value = category;
-            option.textContent = category || '선택하세요';
+            option.textContent = category || '선택하기';
             selectElement.appendChild(option);
         });
         
@@ -56,22 +56,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 라벨 텍스트 업데이트
         if (companionLabel) {
-            companionLabel.textContent = 'with Who? (카테고리)';
+            companionLabel.textContent = 'with Who?';
         }
-        
-        console.log('with Who? 입력 필드를 카테고리 선택 태그로 변경 완료');
     }
     
     // 버튼 존재 여부 확인
     const saveBtn = document.querySelector('.save-btn');
     const submitBtn = document.querySelector('.submit-btn');
     const deleteBtn = document.querySelector('.delete-btn');
-    console.log('저장 버튼 존재 여부:', saveBtn ? '있음' : '없음');
-    console.log('캘린더로 이동 버튼 존재 여부:', submitBtn ? '있음' : '없음');
-    console.log('삭제 버튼 존재 여부:', deleteBtn ? '있음' : '없음');
-    
-    // 디버깅용 메시지 표시
-    showInfoMessage('페이지가 로드되었습니다. 테스트를 위한 메시지입니다.');
     
     // URL에서 날짜 파라미터 가져오기
     const urlParams = new URLSearchParams(window.location.search);
@@ -363,11 +355,39 @@ function updateDateDisplay(date) {
         const day = date.getDate().toString().padStart(2, '0');
         const weekday = weekdays[date.getDay()];
         
-        const formattedDate = `${year}.${month}.${day} ${weekday} ⭐`;
+        // 날짜 형식화 (날씨 아이콘은 별도로 추가됨)
+        const formattedDate = `${year}.${month}.${day} ${weekday}`;
         console.log('표시할 날짜:', formattedDate);
+        
         const selectedDateElement = document.querySelector('.selected-date');
         if (selectedDateElement) {
+            // 일단 날짜만 표시하고, 날씨 아이콘은 날씨 데이터를 가져온 후 추가
             selectedDateElement.textContent = formattedDate;
+            
+            // 날씨 데이터 가져오기
+            fetchWeatherForDate(`${year}-${month}-${day}`).then(weatherData => {
+                if (weatherData) {
+                    // 날씨 아이콘 추가
+                    let displayText = formattedDate;
+                    
+                    // 아이콘이 있으면 추가
+                    if (weatherData.icon) {
+                        displayText += ` ${weatherData.icon}`;
+                    }
+                    
+                    selectedDateElement.textContent = displayText;
+                    
+                    // 텍스트 정보가 있으면 툴크으로 추가 (선택 사항)
+                    if (weatherData.text) {
+                        selectedDateElement.title = `날씨: ${weatherData.text}`;
+                        
+                        // description이 있고 text와 다르면 추가 정보로 표시
+                        if (weatherData.description && weatherData.description !== weatherData.text) {
+                            selectedDateElement.title += ` (${weatherData.description})`;
+                        }
+                    }
+                }
+            });
         }
         
         // 미니 캘린더 월 제목 업데이트
@@ -380,6 +400,167 @@ function updateDateDisplay(date) {
     } else {
         console.error('유효하지 않은 날짜:', date);
     }
+}
+
+// 특정 날짜의 날씨 정보 가져오기
+async function fetchWeatherForDate(dateStr) {
+    console.log('날씨 정보 가져오기:', dateStr);
+    
+    try {
+        // 1. 접근 토큰 확인
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            console.error('날씨 요청: 로그인이 필요합니다');
+            return null;
+        }
+        
+        // 2. 날짜 정규화 - YYYY-MM-DD 형식 확보
+        const normalizedDate = normalizeDate(dateStr);
+        if (!normalizedDate) {
+            console.error('날씨 요청: 유효하지 않은 날짜 형식:', dateStr);
+            return null;
+        }
+        
+        // 3. 일정 API 요청으로 날씨 데이터 가져오기 
+        // (백엔드에는 별도 weather API가 없고 일정 API에서 날씨 정보를 포함하여 반환)
+        const response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/`, {
+            headers: {'Authorization': `Bearer ${token}`}
+        });
+        
+        if (!response.ok) {
+            console.error('일정 API 오류:', response.status);
+            return null;
+        }
+        
+        // 4. 응답 데이터 가져오기
+        const data = await response.json();
+        console.log('일정 API 응답 데이터:', data);
+        
+        // 5. 날씨 데이터 추출
+        const weatherData = data.weather || [];
+        console.log('추출된 날씨 데이터:', weatherData);
+        
+        if (!weatherData || weatherData.length === 0) {
+            console.warn('날씨 데이터가 없습니다');
+            return {
+                icon: '⏳',
+                text: '날씨 정보 없음',
+                description: '날씨 정보를 가져올 수 없습니다.'
+            };
+        }
+        
+        // 6. 특정 날짜의 날씨 찾기
+        const weatherForDate = weatherData.find(item => 
+            item.date === normalizedDate || 
+            normalizeDate(item.date) === normalizedDate
+        );
+        
+        console.log('해당 날짜의 날씨 정보:', weatherForDate);
+        
+        // 7. 날씨 정보 추출 (이모티콘과 텍스트 설명 모두)
+        if (weatherForDate) {
+            const result = {
+                icon: null,
+                text: null,
+                description: null,
+                raw: weatherForDate // 원본 날씨 데이터 전체
+            };
+            
+            // 아이콘 설정
+            if (weatherForDate.icon) {
+                result.icon = weatherForDate.icon;
+            }
+            
+            // 텍스트 정보 설정 (날씨 설명)
+            if (weatherForDate.sky) {
+                result.text = weatherForDate.sky;
+            } else if (weatherForDate.description) {
+                result.text = weatherForDate.description;
+            } else if (weatherForDate.weather_main) {
+                result.text = weatherForDate.weather_main;
+            }
+            
+            // 상세 설명 설정
+            if (weatherForDate.description) {
+                result.description = weatherForDate.description;
+            } else if (weatherForDate.weather_description) {
+                result.description = weatherForDate.weather_description;
+            }
+            
+            // PTY(강수형태) 코드가 있으면 텍스트 정보에 추가
+            if (weatherForDate.pty) {
+                const ptyText = getPtyText(weatherForDate.pty);
+                if (ptyText) {
+                    result.text = result.text ? `${result.text}, ${ptyText}` : ptyText;
+                }
+            }
+            
+            // 날씨 정보가 없는 경우 기본값 설정
+            if (!result.text) {
+                if (result.icon) {
+                    // 아이콘을 기반으로 텍스트 추론
+                    result.text = getWeatherTextFromIcon(result.icon);
+                } else {
+                    result.text = '알 수 없는 날씨';
+                }
+            }
+            
+            // 아이콘이 없는 경우 텍스트를 기반으로 아이콘 생성
+            if (!result.icon && result.text) {
+                result.icon = mapWeatherConditionToIcon(result.text);
+            }
+            
+            console.log('처리된 날씨 결과:', result);
+            return result;
+        }
+        
+        // 날씨 정보가 없는 경우 기본 값 반환
+        return {
+            icon: '🔭',
+            text: '날씨 정보 없음',
+            description: '해당 날짜의 날씨 정보를 찾을 수 없습니다.'
+        };
+        
+    } catch (error) {
+        console.error('날씨 데이터 가져오기 오류:', error);
+        return {
+            icon: '⏳',
+            text: '오류 발생',
+            description: '날씨 정보를 가져오는 중 오류가 발생했습니다.'
+        };
+    }
+}
+
+// PTY(강수형태) 코드를 텍스트로 변환
+function getPtyText(ptyCode) {
+    const ptyMap = {
+        '0': '없음',
+        '1': '비',
+        '2': '비/눈',
+        '3': '눈',
+        '4': '소나기'
+    };
+    
+    return ptyMap[ptyCode.toString()] || null;
+}
+
+// 날씨 아이콘에서 텍스트 추출
+function getWeatherTextFromIcon(icon) {
+    const iconToText = {
+        '☀️': '맑음',
+        '🌤️': '구름조금',
+        '⛅': '구름많음',
+        '☁️': '흐림',
+        '🌧️': '비',
+        '❄️': '눈',
+        '🌨️': '비/눈',
+        '🌦️': '소나기',
+        '🌫️': '안개',
+        '⚡': '번개',
+        '🌪️': '폭풍'
+    };
+    
+    return iconToText[icon] || '알 수 없는 날씨';
 }
 
 // 네비게이션 링크 설정
@@ -542,7 +723,16 @@ async function saveScheduleToDB() {
     // 필수 필드 검증
     if (!location) {
         console.error('장소가 입력되지 않음');
-        showErrorMessage('장소를 입력해주세요.');
+        showErrorMessage('장소를 입력해주세요.', 'location');
+        document.getElementById('location').focus();
+        isSubmitting = false;
+        return;
+    }
+    
+    // 구나 동 단위 입력 검증
+    if (!validateLocationFormat(location)) {
+        console.error('장소 형식이 올바르지 않음');
+        showErrorMessage('장소는 구나 동 단위로 입력해주세요. (예: 강남구, 삼성동, 자양1동)', 'location');
         document.getElementById('location').focus();
         isSubmitting = false;
         return;
@@ -717,8 +907,86 @@ function showInfoMessage(message) {
  * 오류 메시지를 화면에 표시합니다
  * @param {string} message - 표시할 메시지
  */
-function showErrorMessage(message) {
-    showMessage(message, 'error');
+function showErrorMessage(message, inputField = null) {
+    console.error('오류 메시지:', message);
+
+    // 이미 있는 오류 메시지 삭제
+    const existingMessages = document.querySelectorAll('.error-message');
+    existingMessages.forEach(msg => msg.remove());
+    
+    // 입력 필드에 오류 스타일 적용
+    if (inputField) {
+        // 모든 필드의 오류 스타일 초기화
+        document.querySelectorAll('.form-group input, .form-group select, .form-group textarea').forEach(
+            field => field.classList.remove('error-field')
+        );
+        
+        // 오류가 있는 필드에 오류 스타일 추가
+        const fieldElement = typeof inputField === 'string' 
+            ? document.getElementById(inputField) 
+            : inputField;
+            
+        if (fieldElement) {
+            fieldElement.classList.add('error-field');
+            fieldElement.focus();
+            
+            // 인라인 오류 메시지 (필드 아래에 표시)
+            const errorSpan = document.createElement('span');
+            errorSpan.className = 'field-error-message';
+            errorSpan.textContent = message;
+            errorSpan.style.color = '#ff4d4f';
+            errorSpan.style.fontSize = '12px';
+            errorSpan.style.display = 'block';
+            errorSpan.style.marginTop = '5px';
+            
+            // 기존 인라인 오류 메시지 제거
+            const existingErrorSpan = fieldElement.parentNode.querySelector('.field-error-message');
+            if (existingErrorSpan) {
+                existingErrorSpan.remove();
+            }
+            
+            // 새 오류 메시지 추가
+            fieldElement.parentNode.appendChild(errorSpan);
+        }
+    }
+    
+    // 일반 오류 메시지 표시
+    const msgElement = document.createElement('div');
+    msgElement.className = 'message error-message';
+    msgElement.textContent = message;
+    
+    // 스타일 추가
+    msgElement.style.backgroundColor = '#fff2f0';
+    msgElement.style.color = '#ff4d4f';
+    msgElement.style.padding = '10px 15px';
+    msgElement.style.margin = '10px 0';
+    msgElement.style.borderRadius = '4px';
+    msgElement.style.borderLeft = '4px solid #ff4d4f';
+    msgElement.style.fontWeight = 'bold';
+    
+    // 메시지 컨테이너에 추가
+    const container = document.querySelector('.schedule-details');
+    if (container) {
+        // 가장 상단에 메시지 추가
+        container.insertBefore(msgElement, container.firstChild);
+    } else {
+        // 컨테이너가 없으면 body에 추가
+        document.body.appendChild(msgElement);
+    }
+    
+    // 7초 후 메시지 제거
+    setTimeout(() => {
+        if (msgElement.parentNode) {
+            msgElement.style.opacity = '0';
+            msgElement.style.transition = 'opacity 0.5s';
+            
+            setTimeout(() => {
+                if (msgElement.parentNode) {
+                    msgElement.remove();
+                }
+            }, 500);
+        }
+    }, 7000);
 }
 
 /**
@@ -819,7 +1087,16 @@ async function submitSchedule() {
     // 필수 데이터 확인
     const location = document.getElementById('location').value.trim();
     if (!location) {
-        showErrorMessage('장소를 입력해주세요.');
+        showErrorMessage('장소를 입력해주세요.', 'location');
+        document.getElementById('location').focus();
+        isSubmitting = false;
+        return;
+    }
+    
+    // 구나 동 단위 입력 검증
+    if (!validateLocationFormat(location)) {
+        console.error('장소 형식이 올바르지 않음');
+        showErrorMessage('장소는 구나 동 단위로 입력해주세요. (예: 강남구, 삼성동, 자양1동)', 'location');
         document.getElementById('location').focus();
         isSubmitting = false;
         return;
@@ -889,21 +1166,21 @@ async function submitSchedule() {
         const [year, month, day] = normalizedDate.split('-').map(num => parseInt(num, 10));
         
         let existingSchedule = null;
-        for (const schedule of schedules) {
-            if (!schedule.date) continue;
+        for (const item of schedules) {
+            if (!item.date) continue;
             
-            // 날짜 정규화하여 비교
-            const scheduleNormalizedDate = normalizeDate(schedule.date);
-            if (!scheduleNormalizedDate) continue;
+            // 모든 날짜를 YYYY-MM-DD 형식으로 정규화
+            const itemNormalizedDate = normalizeDate(item.date);
+            if (!itemNormalizedDate) continue;
             
-            console.log(`비교: 일정 날짜(${scheduleNormalizedDate}) vs 저장 날짜(${normalizedDate})`);
+            console.log(`일정 날짜: ${item.date}, 정규화: ${itemNormalizedDate}, 비교 날짜: ${normalizedDate}`);
             
             // 연, 월, 일이 모두 일치하는지 확인
-            const [scheduleYear, scheduleMonth, scheduleDay] = scheduleNormalizedDate.split('-').map(num => parseInt(num, 10));
+            const [itemYear, itemMonth, itemDay] = itemNormalizedDate.split('-').map(num => parseInt(num, 10));
             
-            if (scheduleYear === year && scheduleMonth === month && scheduleDay === day) {
-                console.log('일치하는 기존 일정 찾음:', schedule);
-                existingSchedule = schedule;
+            if (itemYear === year && itemMonth === month && itemDay === day) {
+                console.log('일치하는 일정 찾음 (연,월,일 모두 일치):', item);
+                existingSchedule = item;
                 break;
             }
         }
@@ -1374,6 +1651,8 @@ window.deleteSchedule = function() {
 window.saveScheduleToDB = saveScheduleToDB;
 window.submitSchedule = submitSchedule;
 window.deleteSchedule = deleteSchedule;
+window.fetchWeatherForDate = fetchWeatherForDate;
+window.validateLocationFormat = validateLocationFormat;
 
 // 날짜 정규화 함수 - 다양한 형식을 YYYY-MM-DD로 통일
 function normalizeDate(dateInput) {
@@ -1467,4 +1746,95 @@ function normalizeDate(dateInput) {
         console.error('날짜 정규화 오류:', error);
         return null;
     }
+}
+
+// 장소 입력 형식 검증 함수 - 구나 동 단위로 입력했는지 확인
+function validateLocationFormat(location) {
+    if (!location) return false;
+    
+    // 한글 구 또는 동 이름 패턴: 한글 + (선택적 숫자) + '구' 또는 한글 + (선택적 숫자) + '동'
+    const koreanDistrictPattern = /[가-힣]+\d*(구|동)$/;
+    
+    // 영문 구 또는 동 이름 패턴(선택사항): 영문 + (선택적 숫자) + '-gu' 또는 영문 + (선택적 숫자) + '-dong'
+    const englishDistrictPattern = /[A-Za-z]+\d*(-gu|-dong)$/;
+    
+    // 패턴 검사
+    if (koreanDistrictPattern.test(location)) {
+        console.log('한글 구/동 패턴 일치');
+        return true;
+    }
+    
+    if (englishDistrictPattern.test(location)) {
+        console.log('영문 구/동 패턴 일치');
+        return true;
+    }
+    
+    console.log('적합한 지역명 패턴 없음');
+    return false;
+}
+
+// 날씨 상태를 이모티콘으로 변환
+function mapWeatherConditionToIcon(condition) {
+    // 한국 기상청 날씨 코드에 따른 아이콘 매핑
+    const weatherIcons = {
+        '맑음': '☀️',
+        '구름조금': '🌤️',
+        '구름많음': '⛅',
+        '흐림': '☁️',
+        '비': '🌧️',
+        '눈': '❄️',
+        '비/눈': '🌨️',
+        '소나기': '🌦️',
+        '안개': '🌫️',
+        '번개': '⚡',
+        '폭풍': '🌪️'
+    };
+    
+    // 숫자 코드(pty)에 따른 아이콘 매핑
+    const ptyIcons = {
+        '0': '☀️', // 맑음
+        '1': '🌧️', // 비
+        '2': '🌨️', // 비/눈
+        '3': '❄️', // 눈
+        '4': '🌦️'  // 소나기
+    };
+    
+    // 영어 날씨 텍스트에 대한 매핑 추가
+    const englishToIcon = {
+        'clear': '☀️',
+        'sunny': '☀️',
+        'partly cloudy': '🌤️',
+        'mostly cloudy': '⛅',
+        'cloudy': '☁️',
+        'rain': '🌧️',
+        'snow': '❄️',
+        'sleet': '🌨️',
+        'shower': '🌦️',
+        'fog': '🌫️',
+        'mist': '🌫️',
+        'haze': '🌫️',
+        'thunderstorm': '⚡',
+        'storm': '🌪️'
+    };
+    
+    if (typeof condition === 'string') {
+        // 먼저 한글 매핑 확인
+        if (weatherIcons[condition]) {
+            return weatherIcons[condition];
+        }
+        
+        // 영어 매핑 확인 (소문자로 변환하여 비교)
+        const lowerCondition = condition.toLowerCase();
+        for (const [key, value] of Object.entries(englishToIcon)) {
+            if (lowerCondition.includes(key)) {
+                return value;
+            }
+        }
+        
+        return '🌤️'; // 기본 아이콘
+    } else if (typeof condition === 'number' || !isNaN(parseInt(condition))) {
+        return ptyIcons[condition.toString()] || '🌤️';
+    }
+    
+    return '🌤️'; // 기본 아이콘
 }

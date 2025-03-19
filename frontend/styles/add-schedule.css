@@ -188,41 +188,58 @@ header {
     margin-bottom: 30px;
 }
 
+/* 폼 그룹 스타일 */
 .form-group {
     margin-bottom: 20px;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 8px;
-    color: #666;
-    font-weight: 500;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #333;
 }
 
 .form-group input,
 .form-group textarea,
 .form-group select {
     width: 100%;
-    padding: 12px;
-    border: 1px solid #e1e1e1;
-    border-radius: 8px;
-    background-color: #f8f9fa;
-    font-size: 16px;
-    transition: all 0.2s ease;
-}
-
-.form-group textarea {
-    height: 120px;
-    resize: vertical;
+    padding: 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: border-color 0.3s, box-shadow 0.3s;
 }
 
 .form-group input:focus,
 .form-group textarea:focus,
 .form-group select:focus {
+    border-color: #4dabf7;
+    box-shadow: 0 0 0 2px rgba(77, 171, 247, 0.2);
     outline: none;
-    border-color: #87CEEB;
-    background-color: #fff;
-    box-shadow: 0 0 0 3px rgba(135, 206, 235, 0.1);
+}
+
+/* 오류 필드 스타일 */
+.form-group input.error-field,
+.form-group textarea.error-field,
+.form-group select.error-field {
+    border-color: #ff4d4f;
+    background-color: #fff2f0;
+}
+
+.form-group input.error-field:focus,
+.form-group textarea.error-field:focus,
+.form-group select.error-field:focus {
+    border-color: #ff4d4f;
+    box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2);
+}
+
+/* 필드 오류 메시지 스타일 */
+.field-error-message {
+    color: #ff4d4f;
+    font-size: 12px;
+    margin-top: 5px;
+    display: block;
 }
 
 /* 버튼 그룹 전체 컨테이너 */
@@ -249,25 +266,24 @@ header {
     border-radius: 4px;
     background-color: white;
     color: #f44336;
-    font-size: 14px;
-    font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    font-weight: 500;
+    transition: all 0.2s;
 }
 
 .delete-btn:hover {
     background-color: #ffebee;
 }
 
-/* 저장 버튼들 컨테이너 - 가운데 정렬 */
+/* 저장 버튼 그룹 */
 .save-buttons {
     display: flex;
     justify-content: center;
-    gap: 20px;
+    gap: 24px;
     width: 100%;
 }
 
-/* 저장 버튼 스타일 */
+/* 현재 페이지에서 저장 버튼 */
 .save-btn {
     width: 210px;
     padding: 8px 15px;
@@ -279,6 +295,10 @@ header {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
+}
+
+.save-btn:hover {
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
 }
 
 /* 캘린더로 이동 버튼 스타일 */
@@ -295,6 +315,10 @@ header {
     transition: all 0.2s ease;
 }
 
+.submit-btn:hover {
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+}
+
 /* hue 버튼 컨테이너 - 가운데 정렬과 너비 제한 */
 .hue-container {
     display: flex;
@@ -304,13 +328,13 @@ header {
 
 /* hue 버튼 스타일 */
 .hue-btn {  
-    width: 80%;
+    width: 60%;
     max-width: 500px;
-    padding: 10px 20px;
-    border: none;
+    padding: 9px 20px;
+    border: 1px solid #3D96F3;
     border-radius: 4px;
-    background-color: #5a9fee;
-    color: white;
+    background-color: white;
+    color: #3D96F3;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
@@ -318,9 +342,9 @@ header {
 }
 
 .hue-btn:hover {
-    background-color: #4693eb;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px #97bde9;
+    background-color: #3D96F3;
+    color: white;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .hue-btn:active {
@@ -329,7 +353,7 @@ header {
 }
 
 .hue-btn:disabled {
-    background-color: #89b3e4;
+    background-color: rgb(165, 196, 231);
     cursor: not-allowed;
 }
 
@@ -380,4 +404,39 @@ header {
 .error-message {
     background-color: #ffebee;
     color: #c62828;
+}
+
+/* 캘린더 링크 컨테이너 */
+.calendar-link-container {
+    margin-top: 15px;
+    text-align: center;
+}
+
+/* 캘린더 버튼 */
+.calendar-btn {  
+    width: 100%;
+    padding: 8px 15px;
+    border: 1px solid #6186a8;
+    border-radius: 4px;
+    background-color: white;
+    color: #6186a8;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.calendar-btn:hover {
+    background-color: #92acc3;
+    color: white;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.calendar-btn:active {
+    transform: translateY(1px);
+}
+
+.calendar-btn:disabled {
+    background-color: #5f6f7c;
+    cursor: not-allowed;
 } 
