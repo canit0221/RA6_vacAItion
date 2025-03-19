@@ -40,7 +40,7 @@
                     <h3 class="selected-date">2025.04.05 토요일 ⭐</h3>
                     <div class="form-group">
                         <label>Where?</label>
-                        <input type="text" id="location" placeholder="구 또는 동 단위로 입력 (예: 강남구, 삼성동, 자양1동)" class="form-control" oninput="validateLocationInput(this)" />
+                        <input type="text" id="location" placeholder="구 또는 동 단위로 입력 (예: 강남구, 잠실6동)" class="form-control" oninput="validateLocationInput(this)" />
                     </div>
                     <div class="form-group">
                         <label>with Who?</label>
@@ -103,7 +103,7 @@
                     // 인라인 오류 메시지 추가
                     const errorSpan = document.createElement('span');
                     errorSpan.className = 'field-error-message';
-                    errorSpan.textContent = '구 또는 동 단위로 입력해주세요. (예: 강남구, 삼성동, 자양1동)';
+                    errorSpan.textContent = '구 또는 동 단위로 입력해주세요. (예: 강남구, 잠실6동)';
                     errorSpan.style.color = '#ff4d4f';
                     errorSpan.style.fontSize = '12px';
                     errorSpan.style.display = 'block';

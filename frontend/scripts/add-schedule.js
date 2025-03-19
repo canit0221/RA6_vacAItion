@@ -20,6 +20,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
     
+    // 일정을 불러오는 중임을 표시
+    showInfoMessage('일정을 불러오는 중입니다...');
+    
     // 네비게이션 링크 설정 (로그아웃 기능 등록)
     setupNavLinks();
     
@@ -128,12 +131,16 @@ async function loadScheduleDirectly() {
             return;
         }
         
+        // 일정을 불러오는 중임을 표시
+        showInfoMessage('일정을 불러오는 중입니다...');
+        
         // 해당 날짜의 일정 가져오기 (서버 측 필터링)
         const response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/?date=${normalizedDate}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (!response.ok) {
+            showErrorMessage('일정을 불러올 수 없습니다.');
             return;
         }
         
@@ -179,9 +186,16 @@ async function loadScheduleDirectly() {
             if (memoInput) {
                 memoInput.value = foundSchedule.memo || '';
             }
+            
+            // 일정 로드 성공 메시지 표시
+            showSuccessMessage('저장된 일정을 불러왔습니다.');
+        } else {
+            // 일정이 없을 경우 메시지 표시
+            showInfoMessage('해당 날짜에 저장된 일정이 없습니다.');
         }
     } catch (error) {
-        // 오류 처리
+        // 오류 메시지 표시
+        showErrorMessage('일정을 불러오는 중 오류가 발생했습니다.');
     }
 }
 
@@ -733,7 +747,7 @@ async function saveScheduleToDB() {
  * @param {string} message - 표시할 메시지
  */
 function showSuccessMessage(message) {
-    // 메시지 표시 기능 제거
+    showMessage(message, 'success');
 }
 
 /**
@@ -741,7 +755,7 @@ function showSuccessMessage(message) {
  * @param {string} message - 표시할 메시지
  */
 function showInfoMessage(message) {
-    // 메시지 표시 기능 제거
+    showMessage(message, 'info');
 }
 
 /**
@@ -749,7 +763,8 @@ function showInfoMessage(message) {
  * @param {string} message - 표시할 메시지
  */
 function showErrorMessage(message, inputField = null) {
-    // 메시지 표시 기능 제거
+    showMessage(message, 'error');
+    
     // 입력 필드에 오류 스타일 적용
     if (inputField) {
         // 모든 필드의 오류 스타일 초기화
@@ -775,7 +790,57 @@ function showErrorMessage(message, inputField = null) {
  * @param {string} type - 메시지 타입 (success, info, error)
  */
 function showMessage(message, type) {
-    // 메시지 표시 기능 제거
+    // 기존 메시지 요소가 있으면 제거
+    const existingMessage = document.querySelector('.message');
+    if (existingMessage) {
+        existingMessage.remove();
+    }
+    
+    // 메시지 요소 생성
+    const messageElement = document.createElement('div');
+    messageElement.className = `message ${type}-message`;
+    messageElement.textContent = message;
+    
+    // 날짜 문자열 요소 찾기
+    const selectedDateElement = document.querySelector('.selected-date');
+    
+    if (selectedDateElement) {
+        // 메시지 컨테이너 찾기 또는 생성
+        let messageContainer = document.querySelector('.message-container');
+        if (!messageContainer) {
+            messageContainer = document.createElement('div');
+            messageContainer.className = 'message-container';
+            
+            // 날짜 문자열 바로 다음에 추가
+            selectedDateElement.insertAdjacentElement('afterend', messageContainer);
+        }
+        
+        // 메시지 추가
+        messageContainer.appendChild(messageElement);
+    } else {
+        // 날짜 문자열 요소가 없는 경우 기존 방식으로 표시
+        let messageContainer = document.querySelector('.message-container');
+        if (!messageContainer) {
+            messageContainer = document.createElement('div');
+            messageContainer.className = 'message-container';
+            
+            // 페이지의 상단에 추가 (폼 바로 위)
+            const formContainer = document.querySelector('.form-container') || document.querySelector('form') || document.body.firstChild;
+            document.body.insertBefore(messageContainer, formContainer);
+        }
+        
+        // 메시지 추가
+        messageContainer.appendChild(messageElement);
+    }
+    
+    // 일정 시간 후 메시지 자동 제거 (성공 및 정보 메시지만)
+    if (type === 'success' || type === 'info') {
+        setTimeout(() => {
+            if (messageElement.parentNode) {
+                messageElement.remove();
+            }
+        }, 5000);
+    }
 }
 
 /**
@@ -1022,6 +1087,9 @@ async function submitSchedule() {
                     return;
                 }
                 
+                // 일정을 불러오는 중임을 표시
+                showInfoMessage('일정을 불러오는 중입니다...');
+                
                 // 날짜 파싱
                 const [year, month, day] = normalizedDate.split('-').map(num => parseInt(num, 10));
                 
@@ -1031,6 +1099,7 @@ async function submitSchedule() {
                 });
                 
                 if (!response.ok) {
+                    showErrorMessage('일정을 불러올 수 없습니다.');
                     return;
                 }
                 
@@ -1077,6 +1146,9 @@ async function submitSchedule() {
                     if (companionInput) companionInput.value = foundSchedule.companion || '';
                     if (memoInput) memoInput.value = foundSchedule.memo || '';
                     
+                    // 성공 메시지 표시
+                    showSuccessMessage('저장된 일정을 불러왔습니다.');
+                    
                     return true;
                 } else {
                     // 폼 초기화
@@ -1088,9 +1160,14 @@ async function submitSchedule() {
                     if (companionInput) companionInput.value = '';
                     if (memoInput) memoInput.value = '';
                     
+                    // 정보 메시지 표시
+                    showInfoMessage('해당 날짜에 저장된 일정이 없습니다.');
+                    
                     return false;
                 }
             } catch (error) {
+                // 오류 메시지 표시
+                showErrorMessage('일정을 불러오는 중 오류가 발생했습니다.');
                 return false;
             }
         }
@@ -1330,26 +1407,10 @@ async function submitSchedule() {
             }
         }
         
-        // 장소 입력 형식 검증 함수 - 구나 동 단위로 입력했는지 확인
+        // 장소 입력 형식 검증 함수 - 구나 동 단위 제한 없이 아무 값이나 입력 가능
         function validateLocationFormat(location) {
-            if (!location) return false;
-            
-            // 한글 구 또는 동 이름 패턴: 한글 + (선택적 숫자) + '구' 또는 한글 + (선택적 숫자) + '동'
-            const koreanDistrictPattern = /[가-힣]+\d*(구|동)$/;
-            
-            // 영문 구 또는 동 이름 패턴(선택사항): 영문 + (선택적 숫자) + '-gu' 또는 영문 + (선택적 숫자) + '-dong'
-            const englishDistrictPattern = /[A-Za-z]+\d*(-gu|-dong)$/;
-            
-            // 패턴 검사
-            if (koreanDistrictPattern.test(location)) {
-                return true;
-            }
-            
-            if (englishDistrictPattern.test(location)) {
-                return true;
-            }
-            
-            return false;
+            // 빈 값만 체크 (최소 1글자 이상 입력 필요)
+            return location != null && location.trim().length > 0;
         }
         
         // 날씨 상태를 이모티콘으로 변환
