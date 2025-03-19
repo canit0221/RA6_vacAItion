@@ -7,7 +7,7 @@ import re
 logger = logging.getLogger(__name__)
 
 # 기상청 API 정보
-KMA_MID_API = "http://apis.data.go.kr/1360000/MidFcstInfoService/getMidFcst"
+KMA_MID_API = "http://apis.data.go.kr/1360000/MidFcstInfoService/getMidLandFcst"
 KMA_SHORT_API = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
 SERVICE_KEY = "r%2BPaRCx%2FnPqwl4wHoqkGLV%2B3V8E0yU8angC8RSjJGIxrHqvEI3qVYQwWJb3lP5xjY38zDp0UKaAsQw9mptNzqQ%3D%3D"
 
@@ -76,20 +76,39 @@ def get_weather_icon(sky=None, pty=None, description=None):
         return "❓"  # 오류 발생 시 기본 아이콘 반환
 
 # (2) 단기예보 가져오기
+# 단기예보에서 하루에 6번 데이터만 가져오기
+NEEDED_TIMES = ["0600", "0900", "1200", "1500", "1800", "2100"]
+
+# SKY 코드에 따른 아이콘 매핑
+SKY_ICON_MAP = {
+    "1": "☀️",  # 맑음
+    "3": "🌤️",  # 구름 많음
+    "4": "☁️"   # 흐림
+}
+
+# PTY 코드에 따른 아이콘 매핑 (강수 형태)
+PTY_ICON_MAP = {
+    "0": None,  # 강수 없음
+    "1": "🌧️",  # 비
+    "2": "🌦️",  # 비/눈
+    "3": "❄️",  # 눈
+    "4": "🌩️"   # 소나기
+}
+
 def get_short_term_weather(nx=60, ny=127):
-    """단기 예보에서 필요한 데이터만 필터링하여 가져오기"""
+    """단기예보 (오늘~3일 후)에서 하루 6번 아이콘만 반환"""
     try:
-        today = datetime.datetime.today().strftime("%Y%m%d")
-        base_time = get_base_time()
+        today = datetime.datetime.today().strftime("%Y%m%d")  # 오늘 날짜
+        base_time = "0500"  # 예보 발표 시간
+        
+        logger.info(f"단기예보 API 호출: 날짜={today}, 기준시간={base_time}")
         
         # Postman과 동일한 방식으로 URL 직접 구성
-        url = f"http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
-        url += f"?serviceKey={SERVICE_KEY}"
-        url += f"&numOfRows=300&pageNo=1&dataType=JSON"
+        url = f"{KMA_SHORT_API}?serviceKey={SERVICE_KEY}"
+        url += f"&numOfRows=1000&pageNo=1&dataType=JSON"
         url += f"&base_date={today}&base_time={base_time}"
         url += f"&nx={nx}&ny={ny}"
         
-        logger.info(f"단기예보 API 호출: 날짜={today}, 기준시간={base_time}")
         logger.info(f"요청 URL: {url}")
         
         response = requests.get(url, timeout=15)
@@ -105,37 +124,49 @@ def get_short_term_weather(nx=60, ny=127):
         if "response" not in data or "body" not in data["response"] or "items" not in data["response"]["body"]:
             logger.error("단기예보 API 응답 형식 오류")
             return []
-
+            
         items = data["response"]["body"]["items"]["item"]
+        logger.info(f"API 응답 항목 수: {len(items)}")
         
-        # 날짜-시간별 데이터 저장 (키: "날짜_시간")
+        # 날짜-시간별 데이터 저장
         weather_data = {}
+        today_int = int(today)  # 오늘 날짜 정수형
         
-        # 4시간 간격으로 6개 시간대 설정
-        target_times = ["0000", "0400", "0800", "1200", "1600", "2000"]
+        # 먼저 필요한 날짜와 시간 조합 생성 (오늘부터 3일간, 6개 시간대)
+        needed_date_times = set()
+        for i in range(4):  # 오늘 포함 4일간
+            target_date = datetime.datetime.today() + datetime.timedelta(days=i)
+            target_date_str = target_date.strftime("%Y%m%d")
+            for time in NEEDED_TIMES:
+                needed_date_times.add(f"{target_date_str}_{time}")
         
+        logger.info(f"필요한 날짜/시간 조합: {len(needed_date_times)}개")
+        
+        # 모든 예보 항목 처리
         for item in items:
-            date = item["fcstDate"]
-            time = item["fcstTime"]
+            fcst_date = item["fcstDate"]  # 예보 날짜 (YYYYMMDD)
+            fcst_time = item["fcstTime"]  # 예보 시간 (HHMM)
             
-            # 가장 가까운 시간대로 매핑
-            matching_time = get_nearest_time(time, target_times)
+            # 오늘부터 3일 후까지만 필터링
+            if int(fcst_date) < today_int or int(fcst_date) > today_int + 3:
+                continue
             
-            if not matching_time:
+            # 정확히 지정된 6개 시간대만 필터링
+            if fcst_time not in NEEDED_TIMES:
                 continue
                 
             # 날짜_시간 형식의 키 생성
-            key = f"{date}_{matching_time}"
+            key = f"{fcst_date}_{fcst_time}"
             
             # 해당 키의 데이터가 없으면 초기화
             if key not in weather_data:
                 weather_data[key] = {
-                    "date": date,
-                    "time": matching_time,
+                    "date": fcst_date,
+                    "time": fcst_time,
                     "temperature": None,
+                    "rain_probability": None,
                     "sky": None,
                     "pty": None,
-                    "rain_probability": None,
                     "icon": None
                 }
             
@@ -157,37 +188,59 @@ def get_short_term_weather(nx=60, ny=127):
                 if value != "-999":
                     weather_data[key]["pty"] = value
         
-        # 아이콘 생성 및 필요 없는 필드 제거
+        logger.info(f"필터링 후 날짜/시간별 데이터: {len(weather_data)}개")
+        
+        # 두 번째 루프: 아이콘 생성 및 최종 결과물 구성
         result = []
         
         for key, item in weather_data.items():
-            # sky와 pty 데이터로 아이콘 생성
-            if item["sky"] and item["pty"] is not None:
-                item["icon"] = get_weather_icon(item["sky"], item["pty"])
-            elif item["sky"]:  # sky만 있는 경우
-                item["icon"] = get_weather_icon(sky=item["sky"], pty="0")
-            elif item["pty"] is not None:  # pty만 있는 경우
-                item["icon"] = get_weather_icon(sky="1", pty=item["pty"])
+            # 아이콘 결정 로직
+            icon = None
+            
+            # 강수 형태(PTY)가 있고 강수가 있는 경우 (비, 눈 등)
+            if item["pty"] and item["pty"] != "0":
+                icon = PTY_ICON_MAP.get(item["pty"], "❓")
+            # 하늘 상태(SKY)로 아이콘 결정
+            elif item["sky"]:
+                icon = SKY_ICON_MAP.get(item["sky"], "❓")
             else:
-                item["icon"] = "☀️"  # 기본 아이콘
+                icon = "☀️"  # 기본 아이콘을 맑음으로 설정
+            
+            item["icon"] = icon
+            
+            # 필수 데이터가 없는 경우 기본값 설정
+            if not item["temperature"]:
+                item["temperature"] = "15"
+            if not item["rain_probability"]:
+                item["rain_probability"] = "10"
             
             # 필요 없는 필드 제거
             item.pop("sky", None)
             item.pop("pty", None)
-            
-            # 필수 데이터가 모두 있는 경우만 결과에 포함
-            if item["temperature"] and item["rain_probability"] and item["icon"]:
-                result.append(item)
+            result.append(item)
         
         # 날짜와 시간순으로 정렬
         result.sort(key=lambda x: (x["date"], x["time"]))
         
-        # 결과가 없으면 빈 배열 반환
+        logger.info(f"최종 단기예보 데이터: {len(result)}개 항목")
+        
+        # 결과가 없으면 샘플 데이터 생성
         if not result:
-            logger.warning("처리된 날씨 데이터가 없습니다.")
-            return []
+            logger.warning("처리된 날씨 데이터가 없어 샘플 데이터 생성")
+            sample_data = []
+            for i in range(3):  # 오늘부터 2일간
+                date = datetime.datetime.today() + datetime.timedelta(days=i)
+                date_str = date.strftime("%Y%m%d")
+                for time in NEEDED_TIMES:  # 6개 시간대
+                    sample_data.append({
+                        "date": date_str,
+                        "time": time,
+                        "temperature": "15",
+                        "rain_probability": "10",
+                        "icon": "☀️"  # 기본 아이콘
+                    })
+            return sample_data
             
-        logger.info(f"단기예보 처리 결과: {len(result)}개 항목 생성")
         return result
     except Exception as e:
         logger.error(f"단기예보 처리 오류: {str(e)}")
@@ -249,146 +302,114 @@ def get_sample_hourly_weather():
     
     return sample_data
 
-# (3) 중기예보 텍스트 분석 함수
-def parse_weather_forecast(description):
-    """중기예보 텍스트를 분석하여 날짜별 날씨 상태를 추출"""
-    weather_periods = []
-    
-    # 날짜 패턴: 숫자+일(요일)~숫자+일(요일) 또는 숫자+일(요일)
-    # 날씨 상태: 맑음, 구름많음, 흐림, 비, 눈 등
-    date_patterns = [
-        r'(\d+)일\(.\)~(\d+)일\(.\)은\s+([^,\.]+)',  # 범위 패턴 (예: 22일(금)~23일(토)은 전국이 대체로 맑겠으나)
-        r'(\d+)일\(.\)은\s+([^,\.]+)'               # 단일 날짜 패턴 (예: 27일(목)은 대체로 흐리겠습니다)
-    ]
-    
-    # 모든 패턴에 대해 검색
-    for pattern in date_patterns:
-        matches = re.finditer(pattern, description)
-        for match in matches:
-            groups = match.groups()
-            
-            if len(groups) == 3:  # 범위 패턴 (시작일, 종료일, 날씨)
-                start_day = int(groups[0])
-                end_day = int(groups[1])
-                weather_state = groups[2]
-                
-                # 날씨 상태 정규화
-                weather_type = get_weather_type(weather_state)
-                
-                # 날짜 범위 저장
-                weather_periods.append({
-                    'start_day': start_day,
-                    'end_day': end_day,
-                    'weather_type': weather_type
-                })
-                
-            elif len(groups) == 2:  # 단일 날짜 패턴 (날짜, 날씨)
-                day = int(groups[0])
-                weather_state = groups[1]
-                
-                # 날씨 상태 정규화
-                weather_type = get_weather_type(weather_state)
-                
-                # 단일 날짜 저장
-                weather_periods.append({
-                    'start_day': day,
-                    'end_day': day,
-                    'weather_type': weather_type
-                })
-        
-    return weather_periods
-
-def get_weather_type(text):
-    """텍스트에서 날씨 유형 추출"""
-    if "맑" in text:
-        return "sunny"
-    elif "구름" in text or "구름많" in text:
-        return "cloudy"
-    elif "흐림" in text or "흐리" in text:
-        return "overcast"
-    elif "비" in text:
-        return "rainy"
-    elif "눈" in text:
-        return "snow"
-    else:
-        return "unknown"
-
-def get_weather_icon_for_date(date_obj, weather_periods, description):
-    """특정 날짜에 해당하는 날씨 아이콘 반환"""
-    day = date_obj.day
-    
-    # 날짜에 해당하는 날씨 기간 찾기
-    for period in weather_periods:
-        if period['start_day'] <= day <= period['end_day']:
-            weather_type = period['weather_type']
-            
-            # 날씨 유형에 따른 아이콘 반환
-            if weather_type == "sunny":
-                return "☀️"
-            elif weather_type == "cloudy":
-                return "🌤️"
-            elif weather_type == "overcast":
-                return "☁️"
-            elif weather_type == "rainy":
-                return "🌧️"
-            elif weather_type == "snow":
-                return "❄️"
-    
-    # 일치하는 기간을 찾지 못한 경우 기존 방식으로 처리
-    return get_weather_icon(description=description)
-
-# (4) 중기예보 가져오기
-def get_mid_term_weather(stnId=108):
+# (3) 중기예보 가져오기
+def get_mid_term_weather():
+    """중기예보 (3~10일 후) 데이터 가져오기"""
     try:
+        reg_id = "11B00000"  # 서울/경기 지역
         today = datetime.datetime.today().strftime("%Y%m%d")
         tmFc = f"{today}0600"
         
-        # Postman에서 성공한 요청 형식 사용
-        direct_url = f"http://apis.data.go.kr/1360000/MidFcstInfoService/getMidFcst?serviceKey={SERVICE_KEY}&pageNo=1&numOfRows=10&dataType=JSON&stnId={stnId}&tmFc={tmFc}"
+        logger.info(f"중기예보 API 호출: 날짜={today}, 발표시각={tmFc}")
         
-        response = requests.get(direct_url, timeout=15)
+        # API URL 직접 구성 (Postman 방식으로)
+        url = f"{KMA_MID_API}?serviceKey={SERVICE_KEY}"
+        url += f"&numOfRows=10&pageNo=1&dataType=JSON"
+        url += f"&regId={reg_id}&tmFc={tmFc}"
+        
+        logger.info(f"중기예보 요청 URL: {url}")
+        
+        response = requests.get(url, timeout=15)
+        
+        logger.info(f"중기예보 API 응답 상태 코드: {response.status_code}")
+        logger.info(f"중기예보 API 응답 내용: {response.text[:200]}...")  # 응답 내용 일부 로깅
         
         if response.status_code != 200:
+            logger.error(f"중기예보 API 오류: 상태 코드 {response.status_code}")
             return []
             
         data = response.json()
         
-        weather_data = []
+        if "response" not in data or "body" not in data["response"] or "items" not in data["response"]["body"]:
+            logger.error("중기예보 API 응답 형식 오류")
+            logger.error(f"응답 데이터: {data}")
+            return []
+
+        items = data["response"]["body"]["items"]["item"]
         
-        if "response" in data and "body" in data["response"] and "items" in data["response"]["body"]:
-            items = data["response"]["body"]["items"]["item"]
-            
-            # 날씨 설명 가져오기
-            weather_description = ""
-            if items and len(items) > 0 and "wfSv" in items[0]:
-                weather_description = items[0]["wfSv"]
-                
-                # 날씨 텍스트 분석
-                weather_periods = parse_weather_forecast(weather_description)
-                
-                # 오늘 날짜 기준으로 10일치 날짜 생성
-                start_date = datetime.datetime.today()
-                
-                for i in range(10):  # 10일치 날씨 데이터 생성
-                    date = start_date + datetime.timedelta(days=i)
-                    date_str = date.strftime("%Y%m%d")
-                    
-                    # 해당 날짜의 날씨 아이콘 결정
-                    icon = get_weather_icon_for_date(date, weather_periods, weather_description)
-                    
-                    daily_weather = {
-                        "date": date_str,
-                        "temperature": "20",  # 기본 온도 값
-                        "rain_probability": "10",  # 기본 강수확률
-                        "icon": icon,
-                        "description": weather_description
-                    }
-                    weather_data.append(daily_weather)
-            else:
-                return []
-        else:
+        if not items or len(items) == 0:
+            logger.warning("중기예보 데이터가 없습니다")
             return []
             
+        # 첫 번째 아이템 사용
+        forecast_item = items[0]
+        logger.info(f"중기예보 데이터 키: {list(forecast_item.keys())}")
+        
+        # 오늘 날짜
+        base_date = datetime.datetime.today()
+        
+        # 결과 저장
+        weather_data = []
+        
+        # 4~10일 후 날씨 데이터 생성
+        for i in range(4, 11):
+            forecast_date = base_date + datetime.timedelta(days=i)
+            date_str = forecast_date.strftime("%Y%m%d")
+            
+            # 날씨 상태 가져오기 (4~10일차)
+            sky_key = f"wf{i}"
+            
+            if sky_key in forecast_item:
+                sky_description = forecast_item[sky_key]
+                logger.info(f"날씨 설명({i}일 후): {sky_description}")
+                
+                # 날씨 아이콘 결정
+                icon = get_weather_icon(description=sky_description)
+                
+                # 온도 추출 시도 (없을 경우 기본값 사용)
+                temp_min_key = f"taMin{i}"
+                temp_max_key = f"taMax{i}"
+                
+                temp_min = forecast_item.get(temp_min_key, "")
+                temp_max = forecast_item.get(temp_max_key, "")
+                
+                # 온도 표시 (최저/최고 온도가 있는 경우)
+                temperature = ""
+                if temp_min and temp_max:
+                    temperature = f"{temp_min}~{temp_max}"
+                elif temp_min:
+                    temperature = temp_min
+                elif temp_max:
+                    temperature = temp_max
+                else:
+                    temperature = "15"  # 기본값
+                
+                # 강수확률 추출 시도
+                rain_prob_key = f"rnSt{i}"
+                rain_probability = forecast_item.get(rain_prob_key, "10")  # 기본값 10%
+                
+                daily_weather = {
+                    "date": date_str,
+                    "temperature": temperature,
+                    "rain_probability": rain_probability,
+                    "icon": icon,
+                    "description": sky_description
+                }
+                weather_data.append(daily_weather)
+                logger.info(f"날씨 데이터 추가({date_str}): 아이콘={icon}, 온도={temperature}")
+            else:
+                # 날씨 데이터가 없는 경우 기본값 설정
+                daily_weather = {
+                    "date": date_str,
+                    "temperature": "15",
+                    "rain_probability": "10",
+                    "icon": "🌤️",  # 기본 아이콘 (물음표 대신 구름 약간)
+                    "description": "정보 없음"
+                }
+                weather_data.append(daily_weather)
+                logger.info(f"날씨 데이터 없음({date_str}): 기본 아이콘 사용")
+        
+        logger.info(f"중기예보 처리 결과: {len(weather_data)}개 항목 생성")
         return weather_data
     except Exception as e:
         logger.error(f"중기예보 처리 오류: {str(e)}")
@@ -402,38 +423,49 @@ def get_full_weather():
         today_str = today.strftime("%Y%m%d")
         logger.info(f"날씨 데이터 가져오기 시작 - 오늘 날짜: {today_str}")
         
-        # 1. 단기예보 데이터 가져오기
+        # 1. 단기예보 데이터 가져오기 (오늘~3일 후)
         short_term_data = get_short_term_weather()
         logger.info(f"단기예보 데이터 개수: {len(short_term_data)}")
         
-        # 2. 중기예보 데이터 가져오기
+        # 2. 중기예보 데이터 가져오기 (4~10일 후)
         mid_term_data = get_mid_term_weather()
         logger.info(f"중기예보 데이터 개수: {len(mid_term_data) if mid_term_data else 0}")
         
-        if not mid_term_data:
-            logger.warning("중기예보 데이터를 가져오지 못했습니다.")
-            mid_term_data = []
-        
+        # 3. 결과 데이터 준비
         final_weather_data = []
         
-        # 오늘 날짜의 단기예보 데이터만 추가 (단기예보 데이터가 없어도 중기예보 데이터 사용하지 않음)
-        today_data_list = [item for item in short_term_data if item["date"] == today_str]
-        if today_data_list:
-            final_weather_data.extend(today_data_list)
-            logger.info(f"오늘 날씨 단기예보 적용: {len(today_data_list)}개 시간대")
-        else:
-            logger.warning("오늘 단기예보 데이터를 찾지 못했습니다. 오늘 날씨 정보가 없습니다.")
-            # 여기서 중기예보 데이터를 사용하지 않음 (오늘 데이터 없음)
+        # 4. 단기예보 데이터 처리 (날짜별로 그룹화)
+        short_term_by_date = {}
+        for item in short_term_data:
+            date = item["date"]
+            if date not in short_term_by_date:
+                short_term_by_date[date] = []
+            short_term_by_date[date].append(item)
         
-        # 나머지 날짜는 중기예보만 적용 (오늘 날짜 제외)
-        future_mid_data = [item for item in mid_term_data if item["date"] != today_str]
-        final_weather_data.extend(future_mid_data)
-        logger.info(f"미래 날짜 중기예보 적용: {len(future_mid_data)}개 날짜")
+        logger.info(f"단기예보 날짜 수: {len(short_term_by_date)}")
         
-        # 날짜순 정렬
+        # 5. 단기예보 데이터 먼저, 그 다음 중기예보 데이터 적용
+        # 단기예보와 중기예보 날짜 추출
+        short_term_dates = set(short_term_by_date.keys())
+        mid_term_dates = set(item["date"] for item in mid_term_data) if mid_term_data else set()
+        
+        # 단기예보 날짜 먼저 처리 (오늘~3일)
+        for date in sorted(short_term_dates):
+            items = short_term_by_date[date]
+            final_weather_data.extend(items)
+            logger.info(f"날짜 {date}에 단기예보 {len(items)}개 항목 추가")
+        
+        # 중기예보 날짜 처리 (단기예보에 없는 날짜만)
+        for date in sorted(mid_term_dates):
+            if date not in short_term_dates:  # 단기예보에 없는 날짜만
+                mid_items = [item for item in mid_term_data if item["date"] == date]
+                final_weather_data.extend(mid_items)
+                logger.info(f"날짜 {date}에 중기예보 {len(mid_items)}개 항목 추가")
+        
+        # 날짜순, 시간순 정렬
         final_weather_data.sort(key=lambda x: (x["date"], x.get("time", "0000")))
         
-        logger.info(f"최종 날씨 데이터 개수: {len(final_weather_data)}")
+        logger.info(f"최종 날씨 데이터 개수: {len(final_weather_data)}개 항목")
         
         return final_weather_data
     except Exception as e:
