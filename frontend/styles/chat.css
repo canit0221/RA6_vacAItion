@@ -15,7 +15,7 @@ body {
 .container {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 20px;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -26,14 +26,24 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 0;
-    border-bottom: 1px solid #eaeaea;
+    margin-bottom: 30px;
 }
 
 .logo {
-    font-size: 1.8rem;
-    font-weight: 700;
+    display: flex;
+    align-items: center;
+}
+
+.logo-img {
+    height: 40px;
+    margin-right: 10px;
+}
+
+.logo-text {
+    font-size: 1.8em;
+    font-weight: bold;
     color: #333;
+    letter-spacing: -0.5px;
 }
 
 .main-nav ul {
@@ -153,6 +163,36 @@ main {
 .chat-header h2 {
     font-size: 1.2rem;
     color: #333;
+    margin-bottom: 5px;
+}
+
+.connection-info {
+    display: flex;
+    align-items: center;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+#connection-status {
+    margin-left: 5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.status-connected {
+    background-color: #e6f7e6;
+    color: #2e7d32;
+}
+
+.status-disconnected {
+    background-color: #f9e6e6;
+    color: #c62828;
+}
+
+.status-error {
+    background-color: #fff3e0;
+    color: #ef6c00;
 }
 
 .chat-messages {
@@ -177,6 +217,10 @@ main {
     align-self: flex-start;
 }
 
+.message.system {
+    align-self: center;
+}
+
 .message-content {
     padding: 12px 16px;
     border-radius: 12px;
@@ -194,8 +238,108 @@ main {
     border-top-left-radius: 0;
 }
 
+.system .message-content {
+    background-color: #f8f9fa;
+    color: #666;
+    border-radius: 8px;
+    font-style: italic;
+    font-size: 0.9rem;
+    text-align: center;
+    max-width: 80%;
+    margin: 0 auto;
+    padding: 8px 12px;
+}
+
 .message-content p {
     margin: 0;
+    white-space: pre-wrap;
+}
+
+/* 마크다운 스타일링 */
+.bot .message-content {
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* 마크다운 서식 스타일 */
+.bot .message-content strong {
+    font-weight: 700;
+    color: #0077b6;
+}
+
+.bot .message-content h1, 
+.bot .message-content h2, 
+.bot .message-content h3, 
+.bot .message-content h4 {
+    margin-top: 12px;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #222;
+}
+
+.bot .message-content h1 {
+    font-size: 1.5rem;
+}
+
+.bot .message-content h2 {
+    font-size: 1.3rem;
+}
+
+.bot .message-content h3 {
+    font-size: 1.1rem;
+}
+
+.bot .message-content ul, 
+.bot .message-content ol {
+    padding-left: 20px;
+    margin-bottom: 10px;
+}
+
+.bot .message-content li {
+    margin-bottom: 4px;
+}
+
+.bot .message-content p + p {
+    margin-top: 10px;
+}
+
+.bot .message-content a {
+    color: #0077b6;
+    text-decoration: none;
+}
+
+.bot .message-content a:hover {
+    text-decoration: underline;
+}
+
+.bot .message-content code {
+    background-color: #f0f0f0;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.bot .message-content pre {
+    background-color: #f0f0f0;
+    padding: 10px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin-bottom: 10px;
+}
+
+.bot .message-content blockquote {
+    border-left: 4px solid #87CEEB;
+    padding-left: 10px;
+    color: #555;
+    margin: 10px 0;
+}
+
+/* 이모티콘 관련 스타일 */
+.bot .message-content .emoji {
+    font-size: 1.2em;
 }
 
 .chat-input {

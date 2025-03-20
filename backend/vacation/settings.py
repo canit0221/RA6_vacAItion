@@ -52,9 +52,9 @@ INSTALLED_APPS = [
     "channels",
     "corsheaders",
     # local apps
-    "account.apps.AccountConfig",
-    "chatbot.apps.ChatbotConfig",
-    "calendar_app.apps.CalendarAppConfig",
+    "account",
+    "chatbot",
+    "calendar_app",
 ]
 
 REST_FRAMEWORK = {
@@ -112,10 +112,21 @@ AUTH_USER_MODEL = "account.User"
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "db",
+        "USER": "postgres",
+        "PASSWORD": "0318",
+        "HOST": "localhost",
+        "PORT": "5432",
     }
 }
 
@@ -162,7 +173,7 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Channels 설정 추가
-ASGI_APPLICATION = "vacation.routing.application"
+ASGI_APPLICATION = "vacation.asgi.application"
 
 # Channel Layers 설정
 CHANNEL_LAYERS = {
@@ -182,6 +193,8 @@ WEBSOCKET_READ_TIMEOUT = 60  # 초 단위
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5500",
     "http://localhost:5500",
+    "http://127.0.0.1:5501",
+    "http://localhost:5501",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
@@ -205,6 +218,9 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
+# OpenAI API 설정
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
 # 로그인 관련 설정 추가
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/chat/"
@@ -213,3 +229,35 @@ LOGIN_REDIRECT_URL = "/chat/"
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_AGE = 86400  # 24시간
 SESSION_COOKIE_SECURE = False  # HTTPS 사용 시 True로 변경
+
+# 로깅 설정
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "channels": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "chatbot": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+    },
+}
