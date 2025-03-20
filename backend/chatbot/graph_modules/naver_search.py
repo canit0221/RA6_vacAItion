@@ -23,7 +23,7 @@ async def naver_search(state: GraphState) -> GraphState:
     """네이버 검색 노드
     
     네이버 지역 검색 API를 통해 장소 정보를 검색합니다.
-    검색 결과는 최대 6개까지 반환합니다.
+    검색 결과는 최대 3개까지 반환합니다.
     
     Args:
         state: 현재 그래프 상태
@@ -76,9 +76,9 @@ async def naver_search(state: GraphState) -> GraphState:
             url = "https://openapi.naver.com/v1/search/local.json"
             params = {
                 "query": final_query,
-                "display": "10",
+                "display": "5",
                 "start": "1",
-                "sort": "random",
+                "sort": "comment",
             }
             
             async with session.get(url, headers=headers, params=params) as response:
@@ -88,7 +88,7 @@ async def naver_search(state: GraphState) -> GraphState:
                     print(f"네이버 검색 결과: {len(results)}개")
                     
                     # 결과 중 최대 6개를 무작위로 선택 (결과가 6개 미만이면 모두 선택)
-                    selected_places = random.sample(results, min(6, len(results))) if results else []
+                    selected_places = random.sample(results, min(3, len(results))) if results else []
                     
                     # 선택된 장소 정보 가공
                     places = []
