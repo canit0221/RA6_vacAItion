@@ -36,9 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (deleteAccountLink) {
         deleteAccountLink.addEventListener('click', (e) => {
             e.preventDefault();
-            if (confirm('정말로 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-                alert('계정 삭제 기능은 아직 개발 중입니다.');
-            }
+            window.location.href = 'delete-account.html';
         });
     }
 });

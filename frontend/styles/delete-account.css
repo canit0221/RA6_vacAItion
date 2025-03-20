@@ -1,0 +1,128 @@
+/* 전체 스타일 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Noto Sans KR', Arial, sans-serif;
+}
+
+body {
+    background-color: #ffffff;
+    line-height: 1.6;
+    color: #333;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.container {
+    max-width: 480px;
+    width: 100%;
+    padding: 20px;
+}
+
+/* 폼 스타일 */
+.delete-account-form {
+    background-color: white;
+    border-radius: 12px;
+    padding: 30px 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    text-align: center;
+}
+
+.logo {
+    font-size: 28px;
+    font-weight: 700;
+    color: #87CEEB;
+    margin-bottom: 15px;
+}
+
+.title {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.message {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 25px;
+    line-height: 1.5;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    padding: 0 15px;
+}
+
+.input-icon {
+    color: #666;
+    margin-right: 10px;
+}
+
+input {
+    flex-grow: 1;
+    border: none;
+    background: transparent;
+    padding: 15px 0;
+    font-size: 16px;
+    color: #333;
+    outline: none;
+}
+
+input::placeholder {
+    color: #999;
+}
+
+.btn {
+    background-color: #87CEEB;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 15px;
+    width: 100%;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+.btn:hover {
+    background-color: #60b7e0;
+}
+
+.warning {
+    color: #ff4500;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* 리턴 링크 스타일 */
+.return-section {
+    margin-top: 20px;
+    font-size: 14px;
+    color: #666;
+}
+
+.return-link {
+    color: #87CEEB;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.return-link:hover {
+    color: #60b7e0;
+    text-decoration: underline;
+} 
