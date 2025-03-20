@@ -150,6 +150,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def process_message_in_background(self, message, session):
         """백그라운드에서 메시지 처리"""
+        animation_task = None
         try:
             print("\n=== AI 응답 처리 시작 ===")
             # LangGraph 인스턴스 대기
@@ -159,30 +160,40 @@ class ChatConsumer(AsyncWebsocketConsumer):
             graph = get_graph_instance()
             print("=== LangGraph 인스턴스 가져옴 ===")
             
-            # 상태 업데이트 시작
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    "type": "chat_message",
-                    "message": "검색 중...",
-                    "is_bot": True,
-                    "is_streaming": True,
-                    "session_id": str(session.id),
-                },
-            )
+            # 상태 업데이트 시작 - 애니메이션 효과를 위한 반복
+            ellipsis_patterns = ["", ".", "..", "..."]
+            animation_count = 0
+            
+            # 애니메이션 태스크 정의
+            async def animate_ellipsis():
+                nonlocal animation_count
+                while True:
+                    pattern = ellipsis_patterns[animation_count % len(ellipsis_patterns)]
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            "type": "chat_message",
+                            "message": f"맞춤 장소를 찾아보는 중입니다{pattern}",
+                            "is_bot": True,
+                            "is_streaming": True,
+                            "session_id": str(session.id),
+                        },
+                    )
+                    animation_count += 1
+                    await asyncio.sleep(0.5)  # 0.5초마다 업데이트
+            
+            # 애니메이션 시작
+            animation_task = asyncio.create_task(animate_ellipsis())
                 
             # LangGraph 실행 (비동기 호출)
             print("=== LangGraph 비동기 호출 시작 ===")
             try:
-                # 비동기 호출로 변경
                 result = await graph.ainvoke({"question": message})
                 
                 if "answer" in result:
                     content = result["answer"]
                     print(f"=== 응답 받음: 길이 {len(content)} ===")
                     print(f"=== 응답 미리보기: {content[:100]}... ===")
-                    
-                    # 최종 응답
                     final_response = content
                 else:
                     print(f"=== 응답에 'answer' 키가 없음, 가능한 키: {list(result.keys())} ===")
@@ -232,6 +243,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "session_id": str(session.id),
                 },
             )
+        finally:
+            # 애니메이션 태스크가 존재하면 취소
+            if animation_task and not animation_task.done():
+                animation_task.cancel()
+                try:
+                    await animation_task
+                except asyncio.CancelledError:
+                    pass
 
     async def chat_message(self, event):
         """채팅 메시지를 클라이언트에게 전송"""
@@ -239,13 +258,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
             is_bot = event.get("is_bot", False)
             is_streaming = event.get("is_streaming", False)
             
-            # 메시지 정보 로깅
-            message_preview = event.get("message", "")[:50]
-            print(f"=== 클라이언트로 메시지 전송: 타입={'봇' if is_bot else '사용자'}, 스트리밍={is_streaming}, 내용={message_preview}... ===")
+            # 스트리밍이 아닌 경우에만 로그 출력
+            if not is_streaming:
+                message_preview = event.get("message", "")[:50]
+                print(f"=== 클라이언트로 메시지 전송: 타입={'봇' if is_bot else '사용자'}, 스트리밍={is_streaming}, 내용={message_preview}... ===")
             
             # 메시지 전송
             await self.send(text_data=json.dumps(event))
-            print(f"=== 메시지 전송 완료: 길이={len(event.get('message', ''))} ===")
+            
+            # 스트리밍이 아닌 경우에만 로그 출력
+            if not is_streaming:
+                print(f"=== 메시지 전송 완료: 길이={len(event.get('message', ''))} ===")
+                
         except Exception as e:
             print(f"=== 메시지 전송 중 오류: {e} ===")
             try:

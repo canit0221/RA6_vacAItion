@@ -294,7 +294,31 @@ class ChatWebSocket {
                     
                     // 봇 메시지 처리
                     if (data.is_bot) {
-                        displayMessage(data.message, true);
+                        if (data.is_streaming) {
+                            // 스트리밍 메시지는 로그 출력하지 않음
+                            let streamingMsg = document.querySelector('.message.bot.streaming');
+                            if (streamingMsg) {
+                                // 기존 스트리밍 메시지 업데이트 - textContent 사용
+                                const contentDiv = streamingMsg.querySelector('.message-content');
+                                // 현재 텍스트와 다른 경우에만 업데이트
+                                if (contentDiv.textContent !== data.message) {
+                                    contentDiv.textContent = data.message;
+                                }
+                            } else {
+                                // 새 스트리밍 메시지 생성
+                                displayMessage(data.message, true, true);
+                            }
+                        } else {
+                            // 일반 메시지는 로그 출력
+                            console.log('봇 메시지 수신:', data.message);
+                            // 스트리밍이 아닌 일반 메시지는 새로 표시
+                            // 기존 스트리밍 메시지가 있다면 제거
+                            const streamingMsg = document.querySelector('.message.bot.streaming');
+                            if (streamingMsg) {
+                                streamingMsg.remove();
+                            }
+                            displayMessage(data.message, true);
+                        }
                     }
                     // 사용자 메시지 처리 - is_user 대신 is_bot이 false인지 확인
                     else if (data.is_bot === false) {
@@ -468,12 +492,12 @@ function displayChatMessages(messages) {
 }
 
 // 메시지 표시 함수
-function displayMessage(content, isBot) {
+function displayMessage(content, isBot, isStreaming = false) {
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) return;
     
     const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${isBot ? 'bot' : 'user'}`;
+    messageDiv.className = `message ${isBot ? 'bot' : 'user'}${isStreaming ? ' streaming' : ''}`;
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
@@ -491,7 +515,7 @@ function displayMessage(content, isBot) {
             // 마크다운 처리
             else if (typeof marked !== 'undefined') {
                 marked.setOptions({
-                    breaks: true,  // 중요: 마크다운에서 줄바꿈을 활성화
+                    breaks: true,
                     gfm: true,
                     headerIds: false,
                     mangle: false,
