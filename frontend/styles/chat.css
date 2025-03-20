@@ -87,7 +87,9 @@ main {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
-/* 사이드바 스타일 */
+/* 사이드바 스타일 - 더 이상 사용하지 않음 */
+/* .chat-sidebar 관련 스타일은 모두 주석 처리 */
+/*
 .chat-sidebar {
     width: 280px;
     background-color: #f8f9fa;
@@ -146,6 +148,7 @@ main {
     background-color: #e6f4f9;
     font-weight: 500;
 }
+*/
 
 /* 메인 채팅 영역 */
 .chat-main {
@@ -153,6 +156,7 @@ main {
     display: flex;
     flex-direction: column;
     background-color: white;
+    width: 100%; /* 전체 너비 사용 */
 }
 
 .chat-header {

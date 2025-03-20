@@ -535,7 +535,7 @@ def hybrid_retriever(state: GraphState) -> GraphState:
                         diverse_results.append((doc, score, minor_result))
                         if len(diverse_results) >= 3:
                             break
-            
+
             # 점수 순으로 정렬하고 상위 3개 결과 반환
             diverse_results.sort(key=lambda x: x[1], reverse=True)
             top_docs = [doc for doc, _, _ in diverse_results[:3]]

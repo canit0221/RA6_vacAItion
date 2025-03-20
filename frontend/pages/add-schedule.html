@@ -331,6 +331,15 @@
                             // 챗봇 페이지로 이동 (chat.html)
                             let targetUrl = 'chat.html';
                             
+                            // 날짜 파라미터가 필수적으로 포함되도록 함
+                            if (dateParam) {
+                                params.set('date', dateParam); // set을 사용하여 기존 date 파라미터를 덮어씀
+                            } else {
+                                // 날짜 파라미터가 없으면 오늘 날짜 사용
+                                const today = new Date().toISOString().split('T')[0];
+                                params.set('date', today);
+                            }
+                            
                             // 파라미터가 있으면 URL에 추가
                             if (params.toString()) {
                                 targetUrl += `?${params.toString()}`;
