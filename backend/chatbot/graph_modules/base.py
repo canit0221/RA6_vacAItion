@@ -132,14 +132,52 @@ def format_documents(docs: List[Document]) -> str:
     result = "=== RAG 검색 결과 ===\n"
     for i, doc in enumerate(docs, 1):
         content = doc.page_content
+        
+        # 메타데이터에서 정보 추출
         url = doc.metadata.get("url", "None")
-        location = doc.metadata.get("location", "정보 없음")
         title = doc.metadata.get("title", f"장소 {i}")
+        
+        # 위치 정보 추출 개선
+        location = doc.metadata.get("location", "")
+        address = doc.metadata.get("address", "")
+        address_detail = doc.metadata.get("address_detail", "")
+        
+        # 위치 정보 통합
+        location_info = "정보 없음"
+        if location or address or address_detail:
+            parts = []
+            if location: 
+                parts.append(location)
+            if address:
+                parts.append(address)
+            if address_detail:
+                parts.append(address_detail)
+            location_info = " ".join(parts)
+        
+        # 위치 정보가 없는 경우 본문에서 주소 패턴 찾기
+        if location_info == "정보 없음" and content:
+            # 본문에서 "위치:" 또는 "주소:" 패턴 찾기
+            lower_content = content.lower()
+            
+            # 주소 패턴 검색
+            address_indicators = ["위치:", "주소:", "서울", "대한민국"]
+            for indicator in address_indicators:
+                if indicator.lower() in lower_content:
+                    start_idx = lower_content.find(indicator.lower())
+                    if start_idx >= 0:
+                        # 주소 정보가 있는 문장 추출
+                        end_idx = lower_content.find("\n", start_idx)
+                        if end_idx < 0:
+                            end_idx = len(lower_content)
+                        address_text = content[start_idx:end_idx].strip()
+                        if address_text:
+                            location_info = address_text
+                            break
         
         result += f"""
 {i}. {title}
-   📍 위치: {location}
-   📝 설명: {content[:150]}{'...' if len(content) > 150 else ''}
+   📍 위치: {location_info}
+   📝 설명: {content[:200]}{'...' if len(content) > 200 else ''}
    🔍 URL: {url}
 """
     return result 

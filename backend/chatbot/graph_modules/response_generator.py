@@ -58,12 +58,20 @@ def response_generator(state: GraphState) -> GraphState:
             네이버 검색과 RAG 검색 결과를 적절히 조합하여 가장 적합한 장소들을 선별해주세요.
             {question}을 분석해서 적절한 장소를 추천해주세요.
 
+            === 중요: 장소 정보 추출 지침 ===
+            1. 각 장소의 주소 정보를 반드시 추출해야 합니다. 
+               - 원본 데이터에서 '위치:', '주소:', '서울', '구' 등의 키워드가 포함된 부분을 찾아 정확한 주소를 추출하세요.
+               - 전체 텍스트를 분석하여 주소 패턴(구/동/로/길)이 있는 문장을 찾아내세요.
+               - 주소가 없을 경우에만 '정보 없음'으로 표시하세요.
+            2. '위치: 정보 없음'이 많이 나타난다면, 텍스트 내에서 장소명과 함께 언급된 위치 정보를 적극적으로 찾아내세요.
+            3. 장소명도 정확히 추출하세요 - 일반적인 대화의 맥락에서 언급된 장소명은 무엇인지 파악하세요.
+
             ===== 추천 장소 =====
 
             [네이버 지도 기반 추천]
 
-            1️⃣ [장소명]
-            📍 위치: [도로명주소]
+            1️⃣ <b>[장소명]</b>
+            📍 위치: [정확한 주소 - 최대한 도로명주소로 표기]
             🏷️ 분류: [카테고리]
             💫 추천 이유: [간단한 이유]
             🔍 참고: [URL]
@@ -72,15 +80,16 @@ def response_generator(state: GraphState) -> GraphState:
 
             [데이터베이스 기반 추천]
 
-            4️⃣ [장소명]
-            📍 위치: [도로명주소]
-            🏷️ 분류: [카테고리]
-            💫 추천 이유: [간단한 이유]
+            4️⃣ <b>[장소명]</b>
+            📍 위치: [정확한 주소 - 최대한 도로명주소로 표기]
+            🏷️ 분류: [카테고리 - 검색 결과에서 유추]
+            💫 추천 이유: [이 장소가 질문자의 요구사항과 어떻게 부합하는지 구체적으로 설명]
+            ✨ 특징: [분위기, 인테리어, 메뉴, 특별한 점 등]
             🔍 참고: [URL]
 
             [5️⃣, 6️⃣도 동일한 형식으로 추천]
 
-            ✨ 참고: [영업시간, 주차 등 유용한 정보]
+            ✨ 추가 팁: [방문 시 알아두면 좋을 정보나 꿀팁을 공유해주세요]  
             """
         
         # 이벤트 검색용 프롬프트
@@ -92,8 +101,15 @@ def response_generator(state: GraphState) -> GraphState:
         
         위 정보를 바탕으로 질문자의 요구사항에 맞는 이벤트를 추천해주세요.
         각 이벤트에 대해 다음 형식으로 상세히 설명해주시기 바랍니다:
-        중요: 마크다운 형식인 **텍스트**는 사용하지 말고, HTML 태그인 <b>텍스트</b>를 사용하세요.
-        중요: 설명이 긴 경우 줄바꿈을 적절히 사용하세요. 특히 종합 의견 부분은 2-3개의 문단으로 나누어 작성하면 가독성이 좋습니다.
+        중요: HTML 태그인 <b>텍스트</b>를 사용하여 중요 정보를 강조하세요.
+        중요: 설명이 긴 경우 줄바꿈을 적절히 사용하세요.
+
+        === 중요: 이벤트 정보 추출 지침 ===
+        1. 각 이벤트의 주소 정보를 반드시 정확하게 추출해야 합니다. 
+           - 원본 데이터에서 '위치:', '주소:' 등의 키워드가 포함된 부분을 찾아 정확한 주소를 추출하세요.
+           - 주소가 불완전한 경우 구나 지역명만이라도 추출하세요.
+        2. 이벤트 기간과 시간 정보도 정확히 추출하세요.
+        3. 이벤트명도 정확히 추출하세요 - 본문 내용에서 이벤트 제목을 정확히 파악하세요.
 
         💡 <b>종합 추천 의견</b>
         [전체적인 추천 이벤트의 특징을 설명하고, 질문자의 목적에 가장 적합한 순서대로 설명해주세요.]
@@ -103,8 +119,8 @@ def response_generator(state: GraphState) -> GraphState:
         ===== <b>추천 이벤트 목록</b> =====
 
         1️⃣ <b>[이벤트명]</b>
-        📍 위치: [정확한 주소]
-        ⏰ 기간: [진행 기간]
+        📍 위치: [정확한 주소 - 도로명주소 형식이 좋습니다]
+        ⏰ 기간: [진행 기간 - 시작일/종료일 형식]
         🏷️ 주요 특징:
         - [특징 1]
         - [특징 2]
@@ -112,6 +128,10 @@ def response_generator(state: GraphState) -> GraphState:
         💫 추천 이유: [이 이벤트가 질문자의 요구사항과 어떻게 부합하는지 구체적으로 설명]
         🎭 분위기: [이벤트의 분위기]
         👥 추천 관람객: [누구와 함께 가면 좋을지]
+        
+        [2️⃣, 3️⃣ 이벤트도 동일한 형식으로 추천]
+        
+        ✨ 추가 팁: [이벤트 방문 시 알아두면 좋을 정보나 꿀팁을 공유해주세요]
         
         참고: 이벤트는 최대 3개까지만 제공하세요. 검색 결과에 따라 1~3개의 이벤트만 추천해도 됩니다.
         """
@@ -127,15 +147,78 @@ def response_generator(state: GraphState) -> GraphState:
         # 응답 생성
         chain = prompt | llm
         
-        # 이벤트일 경우 네이버 결과는 무시하고 컨텍스트만 사용
+        # 메타데이터가 풍부한 문서 포맷팅
+        def format_with_detailed_metadata(docs):
+            """문서를 메타데이터와 함께 상세히 포맷팅"""
+            formatted_docs = []
+            
+            for i, doc in enumerate(docs, 1):
+                content = doc.page_content
+                
+                # 모든 메타데이터 수집
+                meta = doc.metadata
+                url = meta.get("url", "None")
+                title = meta.get("title", f"장소 {i}")
+                location = meta.get("location", "")
+                address = meta.get("address", "")
+                address_detail = meta.get("address_detail", "")
+                date = meta.get("date", "")
+                tag = meta.get("tag", "")
+                
+                # 위치 정보 통합
+                location_info = "위치 정보 없음"
+                if location or address or address_detail:
+                    parts = []
+                    if location: 
+                        parts.append(location)
+                    if address:
+                        parts.append(address)
+                    if address_detail:
+                        parts.append(address_detail)
+                    location_info = " ".join(parts)
+                
+                # 위치 정보가 없는 경우 본문에서 찾기
+                if location_info == "위치 정보 없음" and content:
+                    # 주소 패턴 찾기
+                    lower_content = content.lower()
+                    address_indicators = ["위치:", "주소:", "서울", "대한민국"]
+                    for indicator in address_indicators:
+                        if indicator.lower() in lower_content:
+                            start_idx = lower_content.find(indicator.lower())
+                            if start_idx >= 0:
+                                # 주소 정보가 있는 문장 추출
+                                end_idx = lower_content.find("\n", start_idx)
+                                if end_idx < 0:
+                                    end_idx = len(lower_content)
+                                address_text = content[start_idx:end_idx].strip()
+                                if address_text:
+                                    location_info = address_text
+                                    break
+                
+                # 형식화된 문서 생성
+                formatted_doc = f"""
+문서 {i}: {title}
+내용: {content}
+위치: {location_info}
+{'날짜: ' + date if date else ''}
+{'태그: ' + tag if tag else ''}
+URL: {url}
+"""
+                formatted_docs.append(formatted_doc)
+            
+            return "\n\n".join(formatted_docs)
+        
+        # 향상된 문서 포맷팅 적용
         if is_event:
+            enhanced_context = format_with_detailed_metadata(retrieved_docs)
             response = chain.invoke({
-                "context": context,
+                "context": enhanced_context,
                 "question": question
             })
         else:
+            enhanced_context = format_with_detailed_metadata(retrieved_docs)
             response = chain.invoke({
-                "context": context,
+                "context": enhanced_context,
                 "naver_results": naver_context,
                 "question": question
             })
