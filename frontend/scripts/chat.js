@@ -10,6 +10,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // 로그인 상태 확인
     checkLoginStatus();
     
+    // UI 업데이트 추가
+    updateUI();
+    
+    // 네비게이션 이벤트 리스너 설정
+    setupEventListeners();
+    
     // 폼 제출 이벤트 리스너
     const messageForm = document.getElementById('messageForm');
     if (messageForm) {
@@ -681,11 +687,11 @@ async function logout() {
 
 // UI 업데이트 함수
 function updateUI() {
-    const username = localStorage.getItem('username');
-    const profileLinks = document.querySelectorAll('nav.main-nav a');
+    const userNickname = localStorage.getItem('userNickname');
+    const profileNavLink = document.getElementById('profileNavLink');
     
-    if (username && profileLinks.length > 1) {
-        profileLinks[1].textContent = `${username}님의 프로필`;
+    if (userNickname && profileNavLink) {
+        profileNavLink.textContent = `${userNickname}님의 프로필`;
     }
 }
 
@@ -693,23 +699,21 @@ function updateUI() {
 function setupEventListeners() {
     const navLinks = document.querySelectorAll('nav.main-nav a');
     
-    if (navLinks.length >= 4) {
+    if (navLinks.length >= 3) {  // Chat 링크가 제거되어 3개로 변경
         // 홈 링크
         navLinks[0].addEventListener('click', function(e) {
             e.preventDefault();
             window.location.href = 'calendar.html';
         });
         
-        // 채팅 링크는 이미 활성화 상태
-        
         // 프로필 링크
-        navLinks[2].addEventListener('click', function(e) {
+        navLinks[1].addEventListener('click', function(e) {
             e.preventDefault();
             window.location.href = 'profile.html';
         });
         
         // 로그아웃 링크
-        navLinks[3].addEventListener('click', function(e) {
+        navLinks[2].addEventListener('click', function(e) {
             e.preventDefault();
             console.log('로그아웃 링크 클릭됨');
             logout();

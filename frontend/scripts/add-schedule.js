@@ -10,6 +10,16 @@ window.deleteInProgress = false;   // 새로운 삭제 진행 중 플래그
 // 전역 변수로 요청 중 상태 관리
 let isSubmitting = false;
 
+// UI 업데이트 함수
+function updateUI() {
+    const userNickname = localStorage.getItem('userNickname');
+    const profileNavLink = document.getElementById('profileNavLink');
+    
+    if (userNickname && profileNavLink) {
+        profileNavLink.textContent = `${userNickname}님의 프로필`;
+    }
+}
+
 // 페이지 로드 시 실행
 document.addEventListener('DOMContentLoaded', () => {
     // 직접 일정 불러오기 함수 호출 추가
@@ -19,6 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!checkLoginStatus()) {
         return;
     }
+    
+    // UI 업데이트 추가
+    updateUI();
     
     // 일정을 불러오는 중임을 표시
     showInfoMessage('일정을 불러오는 중입니다...');
@@ -507,15 +520,21 @@ function getWeatherTextFromIcon(icon) {
 
 // 네비게이션 링크 설정
 function setupNavLinks() {
-    // 로그아웃 링크 (id 기반으로 찾기)
-    const logoutLink = document.querySelector('#logoutLink');
+    const navLinks = document.querySelectorAll('nav a');
     
-    if (logoutLink) {
-        logoutLink.addEventListener('click', (e) => {
+    navLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
             e.preventDefault();
-            logout();
+            
+            if (this.textContent.includes('Home')) {
+                window.location.href = 'calendar.html';
+            } else if (this.id === 'profileNavLink') {
+                window.location.href = 'profile.html';
+            } else if (this.textContent.includes('Logout')) {
+                logout();
+            }
         });
-    }
+    });
 }
 
 // 폼 제출 이벤트 설정

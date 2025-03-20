@@ -68,12 +68,12 @@ async function logout() {
 // UI 업데이트 함수
 function updateUI() {
     // 사용자 이름 표시
-    const username = localStorage.getItem('username');
-    const profileLinks = document.querySelectorAll('nav.main-nav a');
+    const userNickname = localStorage.getItem('userNickname');
+    const profileNavLink = document.getElementById('profileNavLink');
     
-    // 사용자 이름이 있으면 프로필 링크 텍스트 업데이트
-    if (username && profileLinks.length > 1) {
-        profileLinks[1].textContent = `${username}님의 프로필`;
+    // 사용자 닉네임이 있으면 프로필 링크 텍스트 업데이트
+    if (userNickname && profileNavLink) {
+        profileNavLink.textContent = `${userNickname}님의 프로필`;
     }
 }
 
@@ -81,18 +81,16 @@ function updateUI() {
 function setupEventListeners() {
     const navLinks = document.querySelectorAll('nav.main-nav a');
     
-    // 네비게이션 링크 이벤트 처리
     if (navLinks.length >= 3) {
-        // 홈 링크 (이미 활성화 상태)
+        // 홈 링크는 이미 활성화 상태
         
-        // 프로필 링크 (두 번째 링크)
+        // 프로필 링크
         navLinks[1].addEventListener('click', function(e) {
             e.preventDefault();
-            console.log('프로필 링크 클릭됨');
             window.location.href = 'profile.html';
         });
         
-        // 로그아웃 링크 (세 번째 링크)
+        // 로그아웃 링크
         navLinks[2].addEventListener('click', function(e) {
             e.preventDefault();
             console.log('로그아웃 링크 클릭됨');
