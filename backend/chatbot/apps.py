@@ -1,7 +1,7 @@
 from django.apps import AppConfig
 import threading
 import os
-from .graph_chatbot import initialize_graph, graph_ready, get_graph_instance
+from .graph_chatbot import initialize_graph
 
 
 class ChatbotConfig(AppConfig):

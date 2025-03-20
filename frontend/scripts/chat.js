@@ -647,41 +647,75 @@ function sendMessageToSocket(message, messageInput) {
 
 // 로그아웃 함수
 async function logout() {
+    console.log('로그아웃 함수 실행됨');
     try {
         const refreshToken = localStorage.getItem('refresh_token');
+        const accessToken = localStorage.getItem('access_token');
         
-        if (!refreshToken) {
-            alert('이미 로그아웃 되었습니다.');
-            window.location.href = 'login.html';
-            return;
+        if (refreshToken && accessToken) {
+            try {
+                console.log('로그아웃 API 호출...');
+                await fetch(`${BACKEND_BASE_URL}/logout/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({
+                        refresh: refreshToken
+                    })
+                });
+            } catch (error) {
+                console.error('로그아웃 API 에러:', error);
+            }
         }
-        
-        const response = await fetch(`${BACKEND_BASE_URL}/api/account/logout/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-            },
-            body: JSON.stringify({
-                refresh: refreshToken
-            })
-        });
-        
-        // 로컬 스토리지에서 토큰 제거
+    } finally {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('username');
         
         alert('로그아웃 되었습니다.');
-        window.location.href = 'login.html';
-    } catch (error) {
-        console.error('로그아웃 에러:', error);
-        // 에러가 발생해도 로컬 스토리지는 비우기
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('username');
-        alert('로그아웃 처리 중 오류가 발생했습니다.');
-        window.location.href = 'login.html';
+        window.location.replace('login.html');
+    }
+}
+
+// UI 업데이트 함수
+function updateUI() {
+    const username = localStorage.getItem('username');
+    const profileLinks = document.querySelectorAll('nav.main-nav a');
+    
+    if (username && profileLinks.length > 1) {
+        profileLinks[1].textContent = `${username}님의 프로필`;
+    }
+}
+
+// 이벤트 리스너 설정
+function setupEventListeners() {
+    const navLinks = document.querySelectorAll('nav.main-nav a');
+    
+    if (navLinks.length >= 4) {
+        // 홈 링크
+        navLinks[0].addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.href = 'calendar.html';
+        });
+        
+        // 채팅 링크는 이미 활성화 상태
+        
+        // 프로필 링크
+        navLinks[2].addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.href = 'profile.html';
+        });
+        
+        // 로그아웃 링크
+        navLinks[3].addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('로그아웃 링크 클릭됨');
+            logout();
+        });
+    } else {
+        console.warn('네비게이션 링크를 찾을 수 없습니다:', navLinks);
     }
 }
 
