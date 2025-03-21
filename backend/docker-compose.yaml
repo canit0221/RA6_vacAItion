@@ -1,7 +1,7 @@
 services:
   backend:  
     build: .
-    command: sh -c "python manage.py migrate && gunicorn vacation.wsgi:application --bind 0.0.0.0:8000"  # config를 vacation으로 변경
+    command: sh -c "python manage.py makemigrations && python manage.py migrate && gunicorn vacation.wsgi:application --bind 0.0.0.0:8000"  # config를 vacation으로 변경
     volumes:
       - .:/app
       - static_volume:/app/static
