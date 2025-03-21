@@ -1,0 +1,162 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f5f5f5;
+}
+
+.container {
+    width: 100%;
+    max-width: 400px;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.login-box {
+    width: 100%;
+    text-align: center;
+    padding: 40px;
+    border-radius: 16px;
+    background-color: #ffffff;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.logo {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 10px;
+    letter-spacing: -0.5px;
+}
+
+.subtitle {
+    font-size: 1.2em;
+    color: #333;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.description {
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 30px;
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+
+input {
+    width: 100%;
+    padding: 15px;
+    border: 1px solid #e1e1e1;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    font-size: 1em;
+    transition: all 0.2s ease;
+}
+
+input:focus {
+    outline: none;
+    border-color: #87CEEB;
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(135, 206, 235, 0.1);
+}
+
+.forgot-password {
+    text-align: right;
+    margin-bottom: 20px;
+}
+
+.forgot-password a {
+    color: #666;
+    text-decoration: none;
+    font-size: 0.9em;
+    transition: color 0.2s ease;
+}
+
+.forgot-password a:hover {
+    color: #87CEEB;
+}
+
+.login-btn {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 8px;
+    background-color: #87CEEB;
+    color: white;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.login-btn:hover {
+    background-color: #5F9EA0;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(95, 158, 160, 0.2);
+}
+
+.login-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.signup-link {
+    margin-top: 20px;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.signup-link a {
+    color: #87CEEB;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.signup-link a:hover {
+    color: #5F9EA0;
+    text-decoration: underline;
+}
+
+/* 헤더 스타일 추가 */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+    margin-bottom: 20px;
+}
+
+.main-nav ul {
+    display: flex;
+    list-style: none;
+}
+
+.main-nav ul li {
+    margin-left: 20px;
+}
+
+.main-nav ul li a {
+    text-decoration: none;
+    color: #666;
+    font-weight: 500;
+    transition: color 0.3s;
+}
+
+.main-nav ul li a:hover, 
+.main-nav ul li a.active {
+    color: #87CEEB;
+} 

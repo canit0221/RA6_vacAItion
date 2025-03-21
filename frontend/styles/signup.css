@@ -1,0 +1,147 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f5f5f5;
+}
+
+.container {
+    width: 100%;
+    max-width: 400px;
+    padding: 20px;
+}
+
+.signup-box {
+    width: 100%;
+    text-align: center;
+    padding: 40px;
+    border-radius: 16px;
+    background-color: #ffffff;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.title {
+    font-size: 2em;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.subtitle {
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 5px;
+}
+
+.input-group {
+    position: relative;
+    margin-bottom: 15px;
+}
+
+.input-icon {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.2em;
+    color: #666;
+}
+
+input {
+    width: 100%;
+    padding: 15px;
+    padding-left: 45px;
+    border: 1px solid #e1e1e1;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    font-size: 1em;
+    transition: all 0.2s ease;
+}
+
+input:focus {
+    outline: none;
+    border-color: #87CEEB;
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(135, 206, 235, 0.1);
+}
+
+.create-btn {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 8px;
+    background-color: #87CEEB;
+    color: white;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 10px;
+}
+
+.create-btn:hover {
+    background-color: #5F9EA0;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(95, 158, 160, 0.2);
+}
+
+.create-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.login-link {
+    margin-top: 20px;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.login-link a {
+    color: #87CEEB;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.login-link a:hover {
+    color: #5F9EA0;
+    text-decoration: underline;
+}
+
+/* 헤더 스타일 추가 */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+    margin-bottom: 20px;
+}
+
+.main-nav ul {
+    display: flex;
+    list-style: none;
+}
+
+.main-nav ul li {
+    margin-left: 20px;
+}
+
+.main-nav ul li a {
+    text-decoration: none;
+    color: #666;
+    font-weight: 500;
+    transition: color 0.3s;
+}
+
+.main-nav ul li a:hover, 
+.main-nav ul li a.active {
+    color: #87CEEB;
+} 

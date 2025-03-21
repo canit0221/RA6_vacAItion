@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vacAItion - 회원정보 수정</title>
+    <link rel="stylesheet" href="../styles/edit-profile.css">
+    <!-- Font Awesome 추가 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="logo">vacAItion</h1>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="calendar.html">Home</a></li>
+                    <li><a href="profile.html" class="active">프로필</a></li>
+                    <li id="loginLink" style="display: none;"><a href="login.html">로그인</a></li>
+                    <li id="signupLink" style="display: none;"><a href="signup.html">회원가입</a></li>
+                    <li id="logoutLink"><a href="#" id="logoutButton">로그아웃</a></li>
+                </ul>
+            </nav>
+        </header>
+        
+        <main>
+            <div class="profile-container">
+                <div class="profile-card">
+                    <div class="edit-header">
+                        <div class="back-button">
+                            <a href="profile.html">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </div>
+                        <h2>회원정보 수정</h2>
+                        <div></div> <!-- 헤더 균형을 위한 빈 공간 -->
+                    </div>
+                    
+                    <div class="profile-content">
+                        <form id="edit-profile-form">
+                            <div class="edit-field-group">
+                                <div class="edit-field">
+                                    <label for="nickname">닉네임<span class="required">*</span></label>
+                                    <div class="character-count"><span id="nickname-count">0</span>/30</div>
+                                    <input type="text" id="nickname" name="nickname" placeholder="닉네임을 입력해주세요" required maxlength="30">
+                                </div>
+
+                                <div class="edit-field">
+                                    <label for="user_address">지역</label>
+                                    <div class="character-count"><span id="intro-count">0</span>/50</div>
+                                    <input type="text" id="user_address" name="user_address" placeholder="소개글을 입력해주세요" maxlength="50">
+                                </div>
+
+                                <div class="edit-field">
+                                    <label for="email">이메일<span class="required">*</span></label>
+                                    <input type="email" id="email" name="email" placeholder="이메일을 입력해주세요" required>
+                                </div>
+                            </div>
+
+                            <div id="status-message" class="status-message"></div>
+                            
+                            <button type="submit" class="btn-save">저장</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="../scripts/edit-profile.js"></script>
+</body>
+</html> 

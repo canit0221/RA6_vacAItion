@@ -1,0 +1,202 @@
+/* 전체 스타일 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Pretendard', Arial, sans-serif;
+}
+
+body {
+    background-color: #ffffff;
+    line-height: 1.6;
+    color: #333;
+}
+
+.container {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* 헤더 스타일 */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+    margin-bottom: 20px;
+}
+
+/* 로고 스타일 */
+.logo {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+.logo-img {
+    height: 40px;
+    margin-right: 10px;
+}
+
+.logo-text {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #000000;
+    letter-spacing: -0.5px;
+}
+
+/* 네비게이션 스타일 */
+.main-nav ul {
+    display: flex;
+    list-style: none;
+    gap: 20px;
+}
+
+.main-nav ul li a {
+    text-decoration: none;
+    color: #666;
+    font-weight: 500;
+    transition: color 0.3s;
+    font-size: 16px;
+}
+
+.main-nav ul li a:hover, 
+.main-nav ul li a.active {
+    color: #87CEEB;
+}
+
+/* 프로필 컨테이너 */
+.profile-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.profile-card {
+    background-color: white;
+    width: 100%;
+    max-width: 480px;
+}
+
+.profile-header {
+    position: relative;
+    padding: 20px 0;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 20px;
+}
+
+.profile-header h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #333;
+}
+
+.edit-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #87CEEB;
+    font-size: 20px;
+}
+
+.profile-description {
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+
+.profile-content {
+    padding: 0 20px 20px;
+}
+
+.profile-info {
+    margin: 30px 0;
+}
+
+.profile-field {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 12px 15px;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+}
+
+.input-icon {
+    margin-right: 10px;
+    font-size: 16px;
+}
+
+.field-value {
+    font-size: 16px;
+    flex-grow: 1;
+}
+
+.password-change {
+    text-align: center;
+    margin: 25px 0;
+}
+
+.password-change a {
+    color: #666;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.account-delete {
+    text-align: center;
+    margin-top: 40px;
+    font-size: 14px;
+    color: #666;
+}
+
+.account-delete a {
+    color: #ff4500;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+/* 버튼 스타일 */
+.btn {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    border-radius: 8px;
+    font-weight: 500;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+    margin-top: 30px;
+    font-size: 16px;
+}
+
+.btn-primary {
+    background-color: #87CEEB;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #60b7e0;
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+    header {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .main-nav {
+        margin-top: 15px;
+    }
+    
+    .main-nav ul {
+        justify-content: center;
+    }
+} 
