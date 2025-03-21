@@ -5,8 +5,8 @@ from datetime import datetime
 class ScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Schedule
-        fields = ['id', 'date', 'location', 'companion', 'memo', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
+        fields = ['id', 'date', 'location', 'companion', 'memo', 'weather_main', 'weather_icon', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'weather_main', 'weather_icon']
 
     def validate_date(self, value):
         """

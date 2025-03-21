@@ -210,15 +210,105 @@ class Calendar {
         // 현재 표시 중인 년월 계산
         const currentYearMonth = `${this.currentYear}${(this.currentMonth + 1).toString().padStart(2, '0')}`;
         
-        // 날씨 데이터 처리 (이미 작동하는 코드)
-        const currentMonthWeather = weatherData.filter(w => {
-            return w.date.substring(0, 6) === currentYearMonth;
-        });
+        // 날씨 데이터 처리 - 여러 날씨 데이터 소스 지원
+        const currentMonthWeather = [];
         
+        // 1. API에서 가져온 weather 배열 처리
+        if (Array.isArray(weatherData)) {
+            const apiWeather = weatherData.filter(w => {
+                // YYYYMMDD 또는 YYYY-MM-DD 형식 모두 지원
+                if (w.date && typeof w.date === 'string') {
+                    // 날짜 형식 통일 (하이픈 제거)
+                    const normalizedDate = w.date.replace(/-/g, '');
+                    return normalizedDate.substring(0, 6) === currentYearMonth;
+                }
+                return false;
+            });
+            
+            currentMonthWeather.push(...apiWeather);
+        }
+        
+        // 2. 일정에 포함된 날씨 정보 처리
+        if (Array.isArray(schedules)) {
+            schedules.forEach(schedule => {
+                // 날짜와 날씨 정보가 있는 일정만 처리
+                if (schedule.date && (schedule.weather_main || schedule.weather_icon)) {
+                    let normalizedDate = '';
+                    
+                    // 날짜 정규화
+                    if (typeof schedule.date === 'string') {
+                        if (schedule.date.includes('-')) {
+                            // YYYY-MM-DD 형식
+                            const parts = schedule.date.split('-');
+                            normalizedDate = `${parts[0]}${parts[1]}${parts[2]}`;
+                        } else if (schedule.date.length === 8) {
+                            // YYYYMMDD 형식
+                            normalizedDate = schedule.date;
+                        }
+                    }
+                    
+                    if (normalizedDate.substring(0, 6) === currentYearMonth) {
+                        // 날씨 객체 생성
+                        const weatherObj = {
+                            date: normalizedDate,
+                            // DB에 저장된 날씨 아이콘 사용
+                            icon: schedule.weather_icon || '',
+                            // DB에 저장된 날씨 상태 사용
+                            weather_main: schedule.weather_main || ''
+                        };
+                        
+                        // 기존 날씨 데이터와 중복되지 않도록 추가
+                        if (!currentMonthWeather.some(w => w.date === normalizedDate)) {
+                            currentMonthWeather.push(weatherObj);
+                        }
+                    }
+                }
+                
+                // weather 객체가 있는 경우 (백엔드 응답에서 전달된 날씨 정보)
+                if (schedule.date && schedule.weather && typeof schedule.weather === 'object') {
+                    let normalizedDate = '';
+                    
+                    // 날짜 정규화
+                    if (typeof schedule.date === 'string') {
+                        if (schedule.date.includes('-')) {
+                            // YYYY-MM-DD 형식
+                            const parts = schedule.date.split('-');
+                            normalizedDate = `${parts[0]}${parts[1]}${parts[2]}`;
+                        } else if (schedule.date.length === 8) {
+                            // YYYYMMDD 형식
+                            normalizedDate = schedule.date;
+                        }
+                    }
+                    
+                    if (normalizedDate.substring(0, 6) === currentYearMonth) {
+                        // 날씨 객체 생성
+                        const weatherObj = {
+                            date: normalizedDate,
+                            icon: schedule.weather.icon || '',
+                            weather_main: schedule.weather.weather_main || ''
+                        };
+                        
+                        // 기존 날씨 데이터와 중복되지 않도록 추가
+                        if (!currentMonthWeather.some(w => w.date === normalizedDate)) {
+                            currentMonthWeather.push(weatherObj);
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 날씨 정보 로깅
+        console.log('날씨 데이터:', currentMonthWeather);
+        
+        // 간소화된 날씨 데이터 생성
         const simplifiedWeather = currentMonthWeather.map(w => {
+            // 정규화된 날짜 데이터 처리
+            const dayStr = w.date.slice(-2).replace(/^0/, ''); // "01" → "1" 변환
+            
             return {
-                date: w.date.slice(-2).replace(/^0/, ''), // "01" → "1" 변환
-                icon: w.icon
+                date: dayStr,
+                icon: w.icon || '',
+                main: w.weather_main || ''
             };
         });
         
@@ -327,11 +417,32 @@ class Calendar {
             // 날씨 정보 표시
             const weatherInfo = simplifiedWeather.find(w => w.date === dateAttr);
             
-            if (weatherInfo && weatherInfo.icon) {
+            if (weatherInfo && (weatherInfo.icon || weatherInfo.main)) {
                 // 날씨 아이콘 표시
                 const weatherIconDiv = document.createElement('div');
                 weatherIconDiv.className = 'weather-icon';
-                weatherIconDiv.textContent = weatherInfo.icon;
+                
+                // 아이콘이 있으면 아이콘 표시, 없으면 텍스트 표시
+                if (weatherInfo.icon) {
+                    weatherIconDiv.textContent = weatherInfo.icon;
+                } else if (weatherInfo.main) {
+                    const iconMap = {
+                        '맑음': '☀️',
+                        '구름조금': '🌤️',
+                        '구름많음': '⛅',
+                        '흐림': '☁️',
+                        '비': '🌧️',
+                        '눈': '❄️',
+                        '비/눈': '🌨️',
+                        '소나기': '🌦️',
+                        '안개': '🌫️',
+                        '번개': '⚡',
+                        '폭풍': '🌪️'
+                    };
+                    
+                    weatherIconDiv.textContent = iconMap[weatherInfo.main] || weatherInfo.main;
+                }
+                
                 day.appendChild(weatherIconDiv);
             }
         });

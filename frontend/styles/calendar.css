@@ -166,14 +166,29 @@ header {
     border-color: #5F9EA0;
 }
 
+/* 날씨 아이콘 스타일 */
 .weather-icon {
-    position: absolute !important;
-    top: 5px !important;
-    right: 5px !important;
-    font-size: 18px !important;
-    z-index: 100 !important;
-    color: #000 !important;
-    display: block !important;
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 12px;
+    z-index: 2;
+    text-shadow: 0px 0px 2px white; /* 배경색에 관계없이 보이도록 텍스트 그림자 추가 */
+}
+
+/* 일정 있는 날에 날씨 아이콘이 가려지지 않도록 조정 */
+.day.has-event .weather-icon {
+    top: 3px;
+    right: 3px;
+}
+
+/* 모바일 화면에서 날씨 아이콘 크기 조정 */
+@media (max-width: 768px) {
+    .weather-icon {
+        font-size: 10px;
+        top: 1px;
+        right: 1px;
+    }
 }
 
 .day.empty {
