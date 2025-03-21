@@ -3,12 +3,25 @@ const BACKEND_BASE_URL = 'http://localhost:8000';
 const DEBUG = true;
 
 let currentSession = null;
+let currentDate = null; // 현재 선택된 날짜 저장
 
 document.addEventListener('DOMContentLoaded', () => {
     if (DEBUG) console.log('DOM 로드됨, 이벤트 리스너 등록 시작');
     
+    // URL에서 날짜 파라미터 가져오기
+    const urlParams = new URLSearchParams(window.location.search);
+    currentDate = urlParams.get('date');
+    
+    if (DEBUG && currentDate) console.log('URL에서 날짜 파라미터 발견:', currentDate);
+    
     // 로그인 상태 확인
     checkLoginStatus();
+    
+    // UI 업데이트 추가
+    updateUI();
+    
+    // 네비게이션 이벤트 리스너 설정
+    setupEventListeners();
     
     // 폼 제출 이벤트 리스너
     const messageForm = document.getElementById('messageForm');
@@ -32,19 +45,13 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('메시지 폼을 찾을 수 없음');
     }
     
-    // 새 채팅 버튼 이벤트 리스너
-    const newChatBtn = document.getElementById('newChatBtn');
-    if (newChatBtn) {
-        newChatBtn.addEventListener('click', createNewChat);
-    }
-    
     // 로그아웃 버튼 이벤트 리스너
     const logoutButton = document.getElementById('logoutButton');
     if (logoutButton) {
         logoutButton.addEventListener('click', logout);
     }
     
-    // 초기 채팅 목록 로드
+    // 초기 채팅 세션 로드
     loadChatSessions();
 });
 
@@ -69,15 +76,89 @@ function checkLoginStatus() {
     if (signupLink) signupLink.style.display = 'none';
     if (profileLink) profileLink.style.display = 'block';
     if (logoutLink) logoutLink.style.display = 'block';
-    
-    // 채팅 기능 초기화
-    initializeChat();
 }
 
-// 채팅 초기화 함수
-function initializeChat() {
-    // 채팅 세션 목록 가져오기
-    loadChatSessions();
+// 날짜 표시 형식으로 변환 (YYYY-MM-DD -> YYYY.MM.DD)
+function formatDateForDisplay(dateStr) {
+    if (!dateStr) return '';
+    
+    // YYYY-MM-DD 형식을 YYYY.MM.DD 형식으로 변환
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        return `${parts[0]}.${parts[1]}.${parts[2]}`;
+    }
+    return dateStr;
+}
+
+// 날짜에 대한 새 세션 생성 함수
+async function createSessionForDate(date) {
+    const accessToken = localStorage.getItem('access_token');
+    if (!accessToken) return;
+    
+    try {
+        const formattedDate = formatDateForDisplay(date);
+        const title = `${formattedDate} 일정 추천`;
+        
+        const response = await fetch(`${BACKEND_BASE_URL}/chat/api/sessions/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({ title })
+        });
+        
+        if (response.ok) {
+            const session = await response.json();
+            // 새로운 세션 생성 후 해당 세션으로 이동
+            await loadChatSession(session.id);
+            updateSessionTitle(formattedDate);
+        } else {
+            console.error('세션 생성 실패:', response.statusText);
+            alert('새 채팅방 생성에 실패했습니다.');
+        }
+    } catch (error) {
+        console.error('세션 생성 에러:', error);
+        alert('새 채팅방 생성 중 오류가 발생했습니다.');
+    }
+}
+
+// 세션 제목 업데이트 함수
+function updateSessionTitle(dateStr) {
+    // 제목 업데이트
+    const currentSessionTitle = document.getElementById('currentSessionTitle');
+    if (currentSessionTitle) {
+        currentSessionTitle.textContent = `${dateStr} 일정 추천`;
+    }
+}
+
+// 채팅 초기화 함수 수정
+async function loadChatSession(sessionId) {
+    try {
+        currentSession = sessionId;
+        // 새로운 WebSocket 연결 생성 (싱글톤 패턴 사용)
+        new ChatWebSocket(sessionId);
+        
+        // 메시지 로드
+        const accessToken = localStorage.getItem('access_token');
+        if (!accessToken) return;
+        
+        const response = await fetch(`${BACKEND_BASE_URL}/chat/api/messages/${sessionId}/`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const messages = await response.json();
+            displayChatMessages(messages);
+        } else {
+            console.error('메시지 로드 실패:', response.statusText);
+        }
+    } catch (error) {
+        console.error('세션 로드 에러:', error);
+    }
 }
 
 // 채팅 세션 목록 로드 함수
@@ -96,11 +177,26 @@ async function loadChatSessions() {
         
         if (response.ok) {
             const sessions = await response.json();
-            displayChatSessions(sessions);
             
-            // 세션이 있으면 첫 번째 세션을 로드
-            if (sessions.length > 0) {
-                await loadChatSession(sessions[0].id);
+            // 현재 날짜 설정 (URL 파라미터 또는 오늘 날짜)
+            const targetDate = currentDate || new Date().toISOString().split('T')[0];
+            const formattedTargetDate = formatDateForDisplay(targetDate);
+            console.log(`대상 날짜: ${formattedTargetDate}`);
+            
+            // 해당 날짜의 세션 찾기
+            const dateSession = sessions.find(session => 
+                session.title.includes(formattedTargetDate));
+                
+            if (dateSession) {
+                // 해당 날짜의 세션이 있으면 해당 세션만 로드
+                console.log(`${formattedTargetDate}에 해당하는 세션 발견:`, dateSession);
+                await loadChatSession(dateSession.id);
+                // 세션 제목 업데이트
+                updateSessionTitle(formattedTargetDate);
+            } else {
+                // 해당 날짜의 세션이 없으면 새로 생성
+                console.log(`${formattedTargetDate}에 해당하는 세션이 없어 새로 생성합니다.`);
+                await createSessionForDate(targetDate);
             }
         } else {
             console.error('세션 로드 실패:', response.statusText);
@@ -108,84 +204,6 @@ async function loadChatSessions() {
     } catch (error) {
         console.error('세션 로드 에러:', error);
     }
-}
-
-// 채팅 세션 목록 표시 함수
-function displayChatSessions(sessions) {
-    const sessionList = document.getElementById('sessionList');
-    if (!sessionList) return;
-    
-    sessionList.innerHTML = '';
-    
-    sessions.forEach(session => {
-        const sessionItem = document.createElement('div');
-        sessionItem.className = 'session-item';
-        
-        // 세션 컨테이너 생성 (세션 제목 + 삭제 버튼을 담을 컨테이너)
-        const sessionContainer = document.createElement('div');
-        sessionContainer.className = 'session-container';
-        sessionContainer.style.display = 'flex';
-        sessionContainer.style.justifyContent = 'space-between';
-        sessionContainer.style.alignItems = 'center';
-        sessionContainer.style.width = '100%';
-        
-        // 세션 제목 컨테이너
-        const titleContainer = document.createElement('div');
-        titleContainer.textContent = session.title || '새 채팅';
-        titleContainer.style.cursor = 'pointer';
-        titleContainer.style.flexGrow = '1';
-        
-        // 세션 삭제 버튼
-        const deleteButton = document.createElement('button');
-        deleteButton.innerHTML = '🗑️';
-        deleteButton.className = 'delete-chat-btn';
-        deleteButton.style.background = 'none';
-        deleteButton.style.border = 'none';
-        deleteButton.style.cursor = 'pointer';
-        deleteButton.style.fontSize = '16px';
-        deleteButton.style.padding = '4px';
-        deleteButton.style.marginLeft = '8px';
-        deleteButton.style.opacity = '0.7';
-        deleteButton.title = '채팅방 삭제';
-        
-        // 마우스 오버 효과
-        deleteButton.onmouseover = () => {
-            deleteButton.style.opacity = '1';
-        };
-        deleteButton.onmouseout = () => {
-            deleteButton.style.opacity = '0.7';
-        };
-        
-        // 삭제 버튼 클릭 이벤트
-        deleteButton.addEventListener('click', (e) => {
-            e.stopPropagation(); // 클릭 이벤트 전파 방지
-            if (confirm('정말로 이 채팅방을 삭제하시겠습니까?')) {
-                deleteChatSession(session.id);
-            }
-        });
-        
-        // 채팅방 클릭 이벤트
-        titleContainer.addEventListener('click', () => {
-            loadChatSession(session.id);
-            
-            // 현재 선택된 세션 하이라이트
-            document.querySelectorAll('.session-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            sessionItem.classList.add('active');
-        });
-        
-        // 컨테이너에 요소들 추가
-        sessionContainer.appendChild(titleContainer);
-        sessionContainer.appendChild(deleteButton);
-        sessionItem.appendChild(sessionContainer);
-        
-        // 세션 ID 설정
-        sessionItem.setAttribute('data-session-id', session.id);
-        
-        // 세션 목록에 추가
-        sessionList.appendChild(sessionItem);
-    });
 }
 
 class ChatWebSocket {
@@ -276,7 +294,31 @@ class ChatWebSocket {
                     
                     // 봇 메시지 처리
                     if (data.is_bot) {
-                        displayMessage(data.message, true);
+                        if (data.is_streaming) {
+                            // 스트리밍 메시지는 로그 출력하지 않음
+                            let streamingMsg = document.querySelector('.message.bot.streaming');
+                            if (streamingMsg) {
+                                // 기존 스트리밍 메시지 업데이트 - textContent 사용
+                                const contentDiv = streamingMsg.querySelector('.message-content');
+                                // 현재 텍스트와 다른 경우에만 업데이트
+                                if (contentDiv.textContent !== data.message) {
+                                    contentDiv.textContent = data.message;
+                                }
+                            } else {
+                                // 새 스트리밍 메시지 생성
+                                displayMessage(data.message, true, true);
+                            }
+                        } else {
+                            // 일반 메시지는 로그 출력
+                            console.log('봇 메시지 수신:', data.message);
+                            // 스트리밍이 아닌 일반 메시지는 새로 표시
+                            // 기존 스트리밍 메시지가 있다면 제거
+                            const streamingMsg = document.querySelector('.message.bot.streaming');
+                            if (streamingMsg) {
+                                streamingMsg.remove();
+                            }
+                            displayMessage(data.message, true);
+                        }
                     }
                     // 사용자 메시지 처리 - is_user 대신 is_bot이 false인지 확인
                     else if (data.is_bot === false) {
@@ -380,46 +422,6 @@ class ChatWebSocket {
 // 싱글톤 인스턴스 저장을 위한 정적 속성
 ChatWebSocket.instance = null;
 
-// 채팅 초기화 함수 수정
-async function loadChatSession(sessionId) {
-    try {
-        currentSession = sessionId;
-        // 새로운 WebSocket 연결 생성 (싱글톤 패턴 사용)
-        new ChatWebSocket(sessionId);
-        
-        // 메시지 로드
-        const accessToken = localStorage.getItem('access_token');
-        if (!accessToken) return;
-        
-        const response = await fetch(`${BACKEND_BASE_URL}/chat/api/messages/${sessionId}/`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`
-            }
-        });
-        
-        if (response.ok) {
-            const messages = await response.json();
-            displayChatMessages(messages);
-            
-            // 현재 세션 타이틀 업데이트
-            updateSessionTitle(sessionId);
-            
-            // 현재 선택된 세션 하이라이트
-            document.querySelectorAll('.session-item').forEach(item => {
-                item.classList.remove('active');
-                if (item.getAttribute('data-session-id') === sessionId) {
-                    item.classList.add('active');
-                }
-            });
-        } else {
-            console.error('메시지 로드 실패:', response.statusText);
-        }
-    } catch (error) {
-        console.error('세션 로드 에러:', error);
-    }
-}
-
 // 채팅 메시지 표시 함수
 function displayChatMessages(messages) {
     const chatMessages = document.getElementById('chatMessages');
@@ -489,59 +491,13 @@ function displayChatMessages(messages) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// 새 채팅 세션 생성 함수
-async function createNewChat() {
-    const accessToken = localStorage.getItem('access_token');
-    if (!accessToken) {
-        alert('로그인이 필요한 기능입니다.');
-        window.location.href = 'login.html';
-        return;
-    }
-    
-    try {
-        const title = '새 채팅 ' + new Date().toLocaleString();
-        const response = await fetch(`${BACKEND_BASE_URL}/chat/api/sessions/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`
-            },
-            body: JSON.stringify({ title })
-        });
-        
-        if (response.ok) {
-            const session = await response.json();
-            // 새로운 세션 생성 후 해당 세션으로 이동
-            await loadChatSession(session.id);
-            // 세션 목록 새로고침
-            loadChatSessions();
-        } else {
-            console.error('세션 생성 실패:', response.statusText);
-            alert('새 채팅방 생성에 실패했습니다.');
-        }
-    } catch (error) {
-        console.error('세션 생성 에러:', error);
-        alert('새 채팅방 생성 중 오류가 발생했습니다.');
-    }
-}
-
-// 세션 제목 업데이트 함수
-function updateSessionTitle(sessionId) {
-    const sessionItems = document.querySelectorAll('.session-item');
-    sessionItems.forEach(item => {
-        if (item.getAttribute('data-session-id') === sessionId) {
-            document.getElementById('currentSessionTitle').textContent = item.textContent;
-        }
-    });
-}
-
 // 메시지 표시 함수
-function displayMessage(content, isBot) {
+function displayMessage(content, isBot, isStreaming = false) {
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) return;
     
     const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${isBot ? 'bot' : 'user'}`;
+    messageDiv.className = `message ${isBot ? 'bot' : 'user'}${isStreaming ? ' streaming' : ''}`;
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
@@ -559,7 +515,7 @@ function displayMessage(content, isBot) {
             // 마크다운 처리
             else if (typeof marked !== 'undefined') {
                 marked.setOptions({
-                    breaks: true,  // 중요: 마크다운에서 줄바꿈을 활성화
+                    breaks: true,
                     gfm: true,
                     headerIds: false,
                     mangle: false,
@@ -607,10 +563,13 @@ async function sendMessage(e) {
     
     if (!currentSession) {
         console.warn('현재 세션이 없습니다.');
-        // 세션이 없으면 새로운 세션 생성
+        
+        // 날짜 기반으로 세션 생성
         try {
-            console.log('새 세션 생성 시도');
-            await createNewChat();
+            console.log('세션 생성 시도');
+            const date = currentDate || new Date().toISOString().split('T')[0];
+            await createSessionForDate(date);
+            
             // 약간의 지연 후 다시 시도
             setTimeout(() => {
                 if (currentSession) {
@@ -681,11 +640,11 @@ async function logout() {
 
 // UI 업데이트 함수
 function updateUI() {
-    const username = localStorage.getItem('username');
-    const profileLinks = document.querySelectorAll('nav.main-nav a');
+    const userNickname = localStorage.getItem('userNickname');
+    const profileNavLink = document.getElementById('profileNavLink');
     
-    if (username && profileLinks.length > 1) {
-        profileLinks[1].textContent = `${username}님의 프로필`;
+    if (userNickname && profileNavLink) {
+        profileNavLink.textContent = `${userNickname}님의 프로필`;
     }
 }
 
@@ -693,23 +652,21 @@ function updateUI() {
 function setupEventListeners() {
     const navLinks = document.querySelectorAll('nav.main-nav a');
     
-    if (navLinks.length >= 4) {
+    if (navLinks.length >= 3) {  // Chat 링크가 제거되어 3개로 변경
         // 홈 링크
         navLinks[0].addEventListener('click', function(e) {
             e.preventDefault();
             window.location.href = 'calendar.html';
         });
         
-        // 채팅 링크는 이미 활성화 상태
-        
         // 프로필 링크
-        navLinks[2].addEventListener('click', function(e) {
+        navLinks[1].addEventListener('click', function(e) {
             e.preventDefault();
             window.location.href = 'profile.html';
         });
         
         // 로그아웃 링크
-        navLinks[3].addEventListener('click', function(e) {
+        navLinks[2].addEventListener('click', function(e) {
             e.preventDefault();
             console.log('로그아웃 링크 클릭됨');
             logout();
@@ -756,10 +713,15 @@ async function deleteChatSession(sessionId) {
                 if (currentSessionTitle) {
                     currentSessionTitle.textContent = '';
                 }
+                
+                // 새 세션 생성
+                if (currentDate) {
+                    await createSessionForDate(currentDate);
+                } else {
+                    const today = new Date().toISOString().split('T')[0];
+                    await createSessionForDate(today);
+                }
             }
-            
-            // 채팅 세션 목록 다시 로드
-            loadChatSessions();
         } else {
             console.error('채팅방 삭제 실패:', response.statusText);
             alert('채팅방 삭제에 실패했습니다.');

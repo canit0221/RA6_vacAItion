@@ -12,30 +12,19 @@
         <header>
             <div class="logo">
                 <img src="../logo.png" alt="VacAItion" class="logo-img">
-                <span class="logo-text">VacAItion</span>
+                <span class="logo-text">vacAItion</span>
             </div>
             <nav class="main-nav">
                 <ul>
                     <li><a href="calendar.html">Home</a></li>
-                    <li><a href="chat.html" class="active">Chat</a></li>
-                    <li id="profileLink" style="display: none;"><a href="profile.html">Profile</a></li>
-                    <li id="logoutLink" style="display: none;"><a href="#" id="logoutButton">Logout</a></li>
+                    <li><a href="profile.html" id="profileNavLink">Profile</a></li>
+                    <li><a href="#" id="logoutButton">Logout</a></li>
                 </ul>
             </nav>
         </header>
         
         <main>
             <div class="chat-container">
-                <div class="chat-sidebar">
-                    <div class="session-header">
-                        <h2>채팅 목록</h2>
-                        <button id="newChatBtn" class="new-chat-btn">새 채팅</button>
-                    </div>
-                    <div class="session-list" id="sessionList">
-                        <!-- 채팅 세션 목록 -->
-                    </div>
-                </div>
-                
                 <div class="chat-main">
                     <div class="chat-header">
                         <h2 id="currentSessionTitle">휴일 채팅</h2>

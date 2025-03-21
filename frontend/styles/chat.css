@@ -87,7 +87,9 @@ main {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
-/* 사이드바 스타일 */
+/* 사이드바 스타일 - 더 이상 사용하지 않음 */
+/* .chat-sidebar 관련 스타일은 모두 주석 처리 */
+/*
 .chat-sidebar {
     width: 280px;
     background-color: #f8f9fa;
@@ -146,6 +148,7 @@ main {
     background-color: #e6f4f9;
     font-weight: 500;
 }
+*/
 
 /* 메인 채팅 영역 */
 .chat-main {
@@ -153,6 +156,7 @@ main {
     display: flex;
     flex-direction: column;
     background-color: white;
+    width: 100%; /* 전체 너비 사용 */
 }
 
 .chat-header {
@@ -221,9 +225,13 @@ main {
     align-self: center;
 }
 
+/* 기본 메시지 스타일 */
 .message-content {
     padding: 12px 16px;
     border-radius: 12px;
+    transition: none;
+    width: auto;
+    min-width: 100px;
 }
 
 .user .message-content {
@@ -232,10 +240,15 @@ main {
     border-top-right-radius: 0;
 }
 
+/* 봇 메시지 기본 스타일 */
 .bot .message-content {
     background-color: #f0f0f0;
     color: #333;
     border-top-left-radius: 0;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .system .message-content {
@@ -253,6 +266,27 @@ main {
 .message-content p {
     margin: 0;
     white-space: pre-wrap;
+}
+
+/* 스트리밍 메시지 스타일 */
+.message.bot.streaming {
+    width: auto;  /* 자동 너비로 변경 */
+    min-width: 250px;  /* 최소 너비 설정 */
+    max-width: 250px;  /* 최대 너비 설정 */
+}
+
+.message.bot.streaming .message-content {
+    color: #666;
+    font-style: italic;
+    width: 100%;
+    min-width: 250px;  /* 최소 너비 설정 */
+    max-width: 250px;  /* 최대 너비 설정 */
+    display: block;
+    white-space: nowrap;  /* 텍스트를 한 줄로 유지 */
+    overflow: hidden;  /* 넘치는 내용 숨김 */
+    text-overflow: ellipsis;  /* 넘치는 텍스트에 ... 표시 */
+    padding: 12px 16px;  /* 패딩 추가 */
+    box-sizing: border-box;  /* 패딩을 너비에 포함 */
 }
 
 /* 마크다운 스타일링 */

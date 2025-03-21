@@ -12,13 +12,13 @@
         <header>
             <div class="logo">
                 <img src="../logo.png" alt="VacAItion" class="logo-img">
-                <span class="logo-text">VacAItion</span>
+                <span class="logo-text">vacAItion</span>
             </div>
             <nav class="main-nav">
                 <ul>
                     <li><a href="calendar.html">Home</a></li>
-                    <li><a href="profile.html" id="profileLink">Profile</a></li>
-                    <li><a href="#" id="logoutLink" class="logout">Logout</a></li>
+                    <li><a href="profile.html" id="profileNavLink">Profile</a></li>
+                    <li><a href="#" id="logoutButton">Logout</a></li>
                 </ul>
             </nav>
         </header>
@@ -56,10 +56,9 @@
                             <button class="delete-btn">일정 삭제하기</button>
                         </div>
                         
-                        <!-- 두 번째 줄: 저장 버튼들 -->
-                        <div class="save-buttons">
-                            <button class="save-btn">현재 페이지에서 저장</button>
-                            <button class="submit-btn">저장 후 캘린더로 이동</button>
+                        <!-- 두 번째 줄: 저장 버튼 -->
+                        <div class="save-container">
+                            <button class="save-btn">저장</button>
                         </div>
                         
                         <!-- 세 번째 줄: hue 버튼 -->
@@ -330,6 +329,15 @@
                             
                             // 챗봇 페이지로 이동 (chat.html)
                             let targetUrl = 'chat.html';
+                            
+                            // 날짜 파라미터가 필수적으로 포함되도록 함
+                            if (dateParam) {
+                                params.set('date', dateParam); // set을 사용하여 기존 date 파라미터를 덮어씀
+                            } else {
+                                // 날짜 파라미터가 없으면 오늘 날짜 사용
+                                const today = new Date().toISOString().split('T')[0];
+                                params.set('date', today);
+                            }
                             
                             // 파라미터가 있으면 URL에 추가
                             if (params.toString()) {

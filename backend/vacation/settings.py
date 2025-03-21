@@ -113,20 +113,14 @@ AUTH_USER_MODEL = "account.User"
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.sqlite3",
-#         "NAME": BASE_DIR / "db.sqlite3",
-#     }
-# }
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "db",
-        "USER": "postgres",
-        "PASSWORD": "7517",
-        "HOST": "localhost",
-        "PORT": "5432",
+        "ENGINE": os.getenv("DB_ENGINE"),
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST"),
+        "PORT": os.getenv("DB_PORT"),
     }
 }
 
@@ -237,12 +231,25 @@ LOGGING = {
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
         },
     },
     "root": {
         "handlers": ["console"],
         "level": "INFO",
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
     },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
     "loggers": {
         "django": {
             "handlers": ["console"],
@@ -253,7 +260,15 @@ LOGGING = {
             "handlers": ["console"],
             "level": "DEBUG",
             "propagate": False,
+        "channels": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
         },
+        "chatbot": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
         "chatbot": {
             "handlers": ["console"],
             "level": "DEBUG",
@@ -261,3 +276,4 @@ LOGGING = {
         },
     },
 }
+
