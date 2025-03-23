@@ -53,12 +53,10 @@ def hybrid_retriever(state: GraphState) -> GraphState:
 
     # 카테고리 정보 추출
     district = query_info.get("district")
-    minor_keywords = query_info.get("minor_keywords", [])
 
     print(f"검색어: '{question}'")
     print(f"지역: {district}")
     print(f"카테고리: {category}")
-    print(f"소분류 키워드: {minor_keywords}")
     print(f"가중치 설정 - 벡터: {vector_weight}, 키워드: {keyword_weight}")
 
     # 데이터 로드
@@ -149,425 +147,151 @@ def hybrid_retriever(state: GraphState) -> GraphState:
             if district in query:
                 return district
 
-        for district in districts:
+            # '서울 ' 접두사 없이 구 이름만 검색
             district_name = district.replace("서울 ", "")
-            if district_name in query:
+            if district_name in query and "구" in district_name:
                 return district
         return None
 
-    # 마이너 키워드 타입 추출 함수
-    def extract_minor_types(query: str) -> List[str]:
-        """쿼리에서 마이너 추천 타입 추출"""
-        query = query.lower()
-        minor_types = []
-        
-        for minor_type, keywords in minor_keyword_groups.items():
-            if any(keyword in query for keyword in keywords):
-                minor_types.append(minor_type)
-        
-        return minor_types
-
-    # 마이너 키워드 점수 계산 함수 - 개선된 버전
-    def calculate_minor_keyword_score(doc_content: str, requested_types: List[str] = None) -> Dict[str, Any]:
-        """문서 내용에서 마이너 키워드 존재 여부 확인 및 점수 계산"""
-        doc_content = doc_content.lower()
+    # 문서에서 마이너 키워드 점수 계산 함수
+    def check_minor_keywords_in_doc(doc_content: str) -> Tuple[float, List[str]]:
+        """
+        문서 내용에서 마이너 키워드 존재 여부 확인 및 점수 계산
+        반환값: (점수, 발견된 키워드 유형 리스트)
+        """
         score = 0.0
-        found_types = []
-        matching_keywords = {}
+        doc_content = doc_content.lower()
+        found_keyword_types = []
         
-        # 각 마이너 키워드 그룹 검사
         for keyword_type, keywords in minor_keyword_groups.items():
-            found_kws = [kw for kw in keywords if kw in doc_content]
-            if found_kws:
-                # 마이너 키워드가 발견됨
-                found_types.append(keyword_type)
-                matching_keywords[keyword_type] = found_kws[:3]  # 최대 3개까지 저장
-                
-                # 가중치 계산 - 요청된 타입이면 더 높은 가중치 부여
-                if requested_types and keyword_type in requested_types:
-                    score += 0.5  # 요청된 타입은 더 높은 가중치
-                else:
-                    score += 0.3  # 기본 가중치
+            if any(keyword in doc_content for keyword in keywords):
+                if keyword_type in ["숨은", "우연", "로컬", "특별한", "감성"]:
+                    score += 0.3  # 각 그룹당 0.3의 가중치
+                    found_keyword_types.append(keyword_type)
         
-        # 최대 점수는 1.0으로 제한
-        score = min(score, 1.0)
-        
-        return {
-            "score": score,
-            "found_types": found_types,
-            "matching_keywords": matching_keywords
-        }
-
-    # 키워드 매칭 점수 계산 함수 - 마이너 장소에 특화된 버전
-    def calculate_keyword_scores(query: str, filtered_docs: List[Any], requested_minor_types: List[str] = None) -> Tuple[List[float], List[Dict]]:
-        """BM25 기반 키워드 매칭 점수와 마이너 키워드 정보 계산"""
-        # 토큰화
-        tokenized_query = tokenize(query)
-        filtered_tokenized_docs = [tokenize(doc.page_content) for doc in filtered_docs]
-        
-        # BM25 객체 생성
-        filtered_bm25 = BM25Okapi(filtered_tokenized_docs)
-        
-        # 기본 키워드 점수 계산
-        base_scores = filtered_bm25.get_scores(tokenized_query)
-        
-        # 맛집 관련 키워드에 가중치 부여
-        if category == "맛집":
-            # 맛집 키워드가 있는 문서에 추가 가중치
-            adjusted_base_scores = []
-            for i, doc in enumerate(filtered_docs):
-                doc_content = doc.page_content.lower()
-                score = base_scores[i]
-                
-                # 중요 맛집 키워드가 포함된 경우 가중치 2.0배 적용 (강화)
-                if any(keyword in doc_content for keyword in important_food_keywords):
-                    score *= 2.0
-                
-                adjusted_base_scores.append(score)
-            
-            base_scores = adjusted_base_scores
-        
-        # 문서 내용의 마이너 키워드 분석 및 점수 계산
-        minor_keyword_results = []
-        for doc in filtered_docs:
-            result = calculate_minor_keyword_score(doc.page_content, requested_minor_types)
-            minor_keyword_results.append(result)
-        
-        minor_scores = [result["score"] for result in minor_keyword_results]
-        
-        # 마이너 키워드 가중치 비율 설정
-        # 마이너 키워드 요청이 있으면 가중치 증가
-        if requested_minor_types:
-            bm25_weight = 0.6  # 마이너 키워드 요청 시 BM25 비중 조금 낮춤
-            minor_weight = 0.4  # 마이너 키워드 비중 증가
-        else:
-            bm25_weight = 0.7 if category == "맛집" else 0.6
-            minor_weight = 1.0 - bm25_weight
-        
-        # 최종 점수 계산
-        final_scores = [
-            base_score * bm25_weight + minor_score * minor_weight
-            for base_score, minor_score in zip(base_scores, minor_scores)
-        ]
-        
-        # 점수 정규화
-        if final_scores:
-            max_score = max(final_scores) + 1e-6
-            final_scores = [score / max_score for score in final_scores]
-        
-        return final_scores, minor_keyword_results
-
-    # 벡터 유사도 점수 계산 함수
-    def calculate_vector_scores(query: str, docs: List[Any]) -> List[float]:
-        """벡터 유사도 점수 계산"""
-        query_embedding = np.array(vectorstore.embedding_function.embed_query(query)).reshape(1, -1)
-        
-        # 기존 벡터스토어에서 인덱스 접근 방식에 맞게 수정
-        vector_results = vectorstore.similarity_search_with_score(query, k=len(docs))
-        
-        # 유사도 점수 추출
-        vector_scores = []
-        doc_score_map = {str(doc.page_content): score for doc, score in vector_results}
-        
-        for doc in docs:
-            # 벡터 결과에서 해당 문서를 찾아 점수 할당
-            score = doc_score_map.get(str(doc.page_content), 1.0)  # 기본값은 최대 거리 1.0
-            # 점수를 유사도로 변환 (1 - 정규화된 거리)
-            vector_scores.append(1.0 - min(score, 1.0))
-        
-        # 정규화
-        if vector_scores:
-            max_vector_score = max(vector_scores) + 1e-6
-            vector_scores = [score / max_vector_score for score in vector_scores]
-        
-        return vector_scores
-
-    # ----- 메인 검색 로직 시작 -----
-    search_start = time.time()
-    print("\n=== 검색 프로세스 시작 ===")
+        return min(score, 1.0), found_keyword_types  # 최대 점수는 1.0
     
-    # 1. 쿼리에서 구 이름과 카테고리 추출
+    # 1. 쿼리 분석
+    # 쿼리에서 구 정보가 없는 경우, query_info에서 가져온 값 사용
     if not district:
         district = extract_district(question)
+
+    # 카테고리 정보가 없는 경우, 쿼리에서 추출
     if not category:
         category = extract_category(question)
-    
-    # 마이너 키워드 추출
-    requested_minor_types = extract_minor_types(question) if not minor_keywords else minor_keywords
-    
+
+    print(f"최종 검색 조건 - 지역: {district}, 카테고리: {category}")
+
+    # 2. 첫 번째 단계: 벡터 검색
+    vector_start = time.time()
+    print("\n2. 벡터 검색 실행 중...")
+
+    # 벡터 검색 과정 수행
+    docs_and_scores = []
+    try:
+        docs_and_scores = vectorstore.similarity_search_with_score(
+            question, k=min(15, len(docs))
+        )
+        print(f"   - 벡터 검색 결과: {len(docs_and_scores)}개 문서")
+    except Exception as e:
+        print(f"   - 벡터 검색 오류: {str(e)}")
+        docs_and_scores = [(doc, 1.0) for doc in docs[:min(15, len(docs))]]
+
+    docs_with_scores = []
+    for doc, score in docs_and_scores:
+        vector_score = 1.0 - score  # 거리를 유사도로 변환
+        docs_with_scores.append((doc, vector_score))
+
+    # 3. 키워드 기반 필터링
+    keyword_start = time.time()
+    print("\n3. 키워드 기반 필터링 중...")
+
+    # 지역 기반 필터링
+    filtered_docs = []
     if district:
-        print(f"\n1. 구 이름 추출: '{district}' 발견")
-        if category:
-            print(f"2. 카테고리 추출: '{category}' 발견")
-        if requested_minor_types and not is_event:  # 이벤트가 아닐 때만 마이너 키워드 출력
-            print(f"3. 마이너 키워드 추출: {', '.join(requested_minor_types)} 발견")
-        
         district_name = district.replace("서울 ", "")
-        
-        # 2. 구 이름으로 필터링
-        keyword_start = time.time()
-        print("\n4. 키워드 기반 필터링 중...")
-        
-        district_filtered_docs = []
-        for doc in docs:
+        for doc, score in docs_with_scores:
             content = doc.page_content.lower()
-            location = doc.metadata.get("location", "").lower()
             if (district.lower() in content or 
                 district_name.lower() in content or 
-                district.lower() in location or 
-                district_name.lower() in location):
-                district_filtered_docs.append(doc)
-        
-        print(f"   - 구 이름으로 필터링된 문서 수: {len(district_filtered_docs)}개")
-        
-        # 구 필터링 결과가 없으면 벡터 검색
-        if len(district_filtered_docs) == 0:
-            print("   - 구 관련 문서를 찾지 못했습니다. 일반 벡터 검색을 수행합니다.")
-            filtered_docs = vectorstore.similarity_search(question, k=8)  # 더 많은 후보 문서 검색
-        else:
-            filtered_docs = district_filtered_docs
-            
-            # 3. 마이너 키워드 기반 필터링 - 이벤트가 아닌 경우에만
-            if not is_event and requested_minor_types:
-                minor_filtered_docs = []
-                print("\n   - 마이너 키워드 필터링 시작...")
-                
-                # 각 문서의 마이너 키워드 점수 계산
-                for doc in filtered_docs:
-                    minor_result = calculate_minor_keyword_score(doc.page_content, requested_minor_types)
-                    score = minor_result["score"]
-                    
-                    # 일정 점수 이상인 문서만 선택
-                    if score > 0:
-                        minor_filtered_docs.append(doc)
-                
-                print(f"   - 마이너 키워드로 필터링 후 문서 수: {len(minor_filtered_docs)}개")
-                
-                # 마이너 필터링 결과가 있으면 적용, 없으면 원래 결과 사용
-                if minor_filtered_docs:
-                    filtered_docs = minor_filtered_docs
-                elif requested_minor_types:
-                    # 마이너 필터링 결과가 없지만 마이너 키워드가 요청된 경우,
-                    # 구 필터링 결과에서 최대 10개까지만 사용 (다양성 확보)
-                    filtered_docs = district_filtered_docs[:min(10, len(district_filtered_docs))]
-                    print("   - 마이너 키워드 매칭 문서가 없습니다. 구 기반 필터링 결과 사용")
-        
-        # 4. 하이브리드 점수 계산
-        scoring_start = time.time()
-        print("\n5. 하이브리드 점수 계산 중...")
-        
-        # 벡터 유사도 점수 계산
-        vector_scores = calculate_vector_scores(question, filtered_docs)
-        
-        # 키워드 매칭 점수 및 마이너 키워드 정보 계산
-        print("   - 키워드 및 마이너 키워드 점수 계산 중...")
-        keyword_scores, minor_keyword_results = calculate_keyword_scores(
-            question, filtered_docs, requested_minor_types
-        )
-        
-        # 5. 최종 점수 계산 및 문서 선택
-        # 지역과 맛집 키워드 조합에 특별 가중치 부여
-        if district and category == "맛집":
-            print("   - 지역+맛집 조합에 특별 가중치 적용")
-            # 가중치 기반 결합
-            final_scores = [
-                (doc, vector_weight * vs + keyword_weight * ks * 1.2, minor_result)  # 맛집 키워드 가중치 추가 조정
-                for doc, vs, ks, minor_result in zip(filtered_docs, vector_scores, keyword_scores, minor_keyword_results)
-            ]
-        # 마이너 장소 요청에 특별 가중치 부여
-        elif requested_minor_types and not is_event:
-            print(f"   - 마이너 장소 요청({', '.join(requested_minor_types)})에 특별 가중치 적용")
-            # 마이너 장소 특화 가중치 적용
-            final_scores = [
-                (doc, vector_weight * 0.8 * vs + keyword_weight * 1.2 * ks, minor_result)  # 키워드 가중치 높이고 벡터 가중치 낮춤
-                for doc, vs, ks, minor_result in zip(filtered_docs, vector_scores, keyword_scores, minor_keyword_results)
-            ]
-        else:
-            # 일반 가중치 기반 결합
-            final_scores = [
-                (doc, vector_weight * vs + keyword_weight * ks, minor_result)
-                for doc, vs, ks, minor_result in zip(filtered_docs, vector_scores, keyword_scores, minor_keyword_results)
-            ]
-        
-        # 6. 점수 기준으로 정렬
-        final_scores.sort(key=lambda x: x[1], reverse=True)
-        
-        # 마이너 장소 다양화를 위한 후처리
-        if requested_minor_types and not is_event:
-            # 상위 10개 결과에서 마이너 키워드 타입별로 가장 높은 점수의 문서 선택
-            top_candidates = final_scores[:min(10, len(final_scores))]
-            selected_by_type = {}
-            
-            # 각 마이너 타입별 최고 점수 문서 선택
-            for doc, score, minor_result in top_candidates:
-                for minor_type in minor_result["found_types"]:
-                    if minor_type in requested_minor_types:
-                        if minor_type not in selected_by_type or selected_by_type[minor_type][1] < score:
-                            selected_by_type[minor_type] = (doc, score, minor_result)
-            
-            # 타입별 선택 문서 모으기
-            diverse_results = []
-            for minor_type, (doc, score, minor_result) in selected_by_type.items():
-                diverse_results.append((doc, score, minor_result))
-            
-            # 다양한 마이너 타입이 없거나 부족한 경우, 상위 점수 결과로 보충
-            if not diverse_results:
-                diverse_results = top_candidates[:3]
-            elif len(diverse_results) < 3:
-                # 이미 선택된 문서 제외하고 상위 점수 문서로 보충
-                selected_docs = {doc for doc, _, _ in diverse_results}
-                for doc, score, minor_result in top_candidates:
-                    if doc not in selected_docs:
-                        diverse_results.append((doc, score, minor_result))
-                        if len(diverse_results) >= 3:
-                            break
-            
-            # 최종 3개 결과 선택 (점수 순 정렬)
-            diverse_results.sort(key=lambda x: x[1], reverse=True)
-            final_results = diverse_results[:3]
-        else:
-            # 일반 검색인 경우 상위 3개 결과
-            final_results = final_scores[:3]
-        
-        # 최종 문서 리스트 생성
-        top_docs = [doc for doc, _, _ in final_results]
-        
-        # 7. 선택된 문서 분석 - 이벤트가 아닌 경우에만
-        if not is_event:
-            print("\n=== 선택된 문서 분석 ===")
-            for i, (doc, score, minor_result) in enumerate(final_results, 1):
-                doc_content = doc.page_content.lower()
-                found_types = minor_result["found_types"]
-                matching_keywords = minor_result["matching_keywords"]
-                
-                print(f"\n문서 {i} 분석 (최종 점수: {score:.4f}):")
-                print(f"내용: {doc.page_content[:150]}...")
-                
-                # 마이너 키워드 분석 정보 출력
-                if found_types:
-                    print(f"   - 발견된 마이너 키워드 타입: {', '.join(found_types)}")
-                    
-                    # 세부 키워드 매칭 정보 출력
-                    for found_type in found_types:
-                        matched_keywords = matching_keywords.get(found_type, [])
-                        if matched_keywords:
-                            print(f"     → {found_type} 키워드: {', '.join(matched_keywords)}")
-                    
-                    # 요청된 마이너 키워드와 매칭되는 타입 강조
-                    matching_requested = set(found_types) & set(requested_minor_types)
-                    if matching_requested:
-                        print(f"   ⭐ 요청한 마이너 키워드와 일치: {', '.join(matching_requested)}")
-                else:
-                    print("   - 마이너 키워드가 발견되지 않았습니다.")
-        
-        scoring_time = time.time() - scoring_start
-        total_time = time.time() - search_start
-        
-        print(f"\n=== 검색 시간 분석 ===")
-        print(f"키워드 필터링 시간: {keyword_start - search_start:.2f}초")
-        print(f"하이브리드 점수 계산 시간: {scoring_time:.2f}초")
-        print(f"전체 검색 시간: {total_time:.2f}초")
-        print(f"최종 검색 결과: {len(top_docs)}개 문서")
-        
-        return {**state, "retrieved_docs": top_docs}
-    
+                district.lower() in doc.metadata.get("location", "").lower() or
+                district_name.lower() in doc.metadata.get("location", "").lower()):
+                filtered_docs.append((doc, score))
+        print(f"   - 지역 필터링 결과: {len(filtered_docs)}개 문서")
     else:
-        # 구 이름이 없는 경우 일반 벡터 검색 + 마이너 키워드 가중치
-        print("   - 구 이름이 감지되지 않았습니다. 일반 벡터 검색을 수행합니다.")
-        
-        # 벡터 검색 (더 많은 후보 검색)
-        k = 5
-        if requested_minor_types and not is_event:
-            k = 8  # 마이너 키워드가 요청된 경우 더 많은 후보 검색
-        
-        vector_results = vectorstore.similarity_search(question, k=k)
-        
-        # 마이너 키워드 요청이 있고 이벤트가 아닌 경우 마이너 점수 기반 재정렬
-        if requested_minor_types and not is_event:
-            print("   - 마이너 키워드 기반 재정렬 수행")
-            
-            # 키워드 점수 및 마이너 키워드 정보 계산
-            keyword_scores, minor_keyword_results = calculate_keyword_scores(
-                question, vector_results, requested_minor_types
-            )
-            
-            # 벡터 점수는 이미 유사도 순으로 정렬되어 있음 (8개)
-            # 내림차순 정규화된 벡터 스코어 만들기
-            normalized_vector_scores = [(k - i) / k for i in range(k)]
-            
-            # 마이너 키워드 요청 시 키워드 가중치 상향
-            vector_weight_minor = 0.3
-            keyword_weight_minor = 0.7
-            
-            # 최종 점수 계산
-            final_scores = [
-                (doc, vector_weight_minor * vs + keyword_weight_minor * ks, minor_result)
-                for doc, vs, ks, minor_result in zip(vector_results, normalized_vector_scores, keyword_scores, minor_keyword_results)
-            ]
-            
-            # 점수 기준 정렬
-            final_scores.sort(key=lambda x: x[1], reverse=True)
-            
-            # 마이너 키워드 타입 다양화 선택
-            top_candidates = final_scores[:min(8, len(final_scores))]
-            selected_by_type = {}
-            
-            # 각 마이너 타입별 최고 점수 문서 선택
-            for doc, score, minor_result in top_candidates:
-                for minor_type in minor_result["found_types"]:
-                    if minor_type in requested_minor_types:
-                        if minor_type not in selected_by_type or selected_by_type[minor_type][1] < score:
-                            selected_by_type[minor_type] = (doc, score, minor_result)
-            
-            # 타입별 선택 문서 모으기
-            diverse_results = []
-            for minor_type, (doc, score, minor_result) in selected_by_type.items():
-                diverse_results.append((doc, score, minor_result))
-            
-            # 다양한 마이너 타입이 없거나 부족한 경우, 상위 점수 결과로 보충
-            if not diverse_results:
-                diverse_results = top_candidates[:3]
-            elif len(diverse_results) < 3:
-                # 이미 선택된 문서 제외하고 상위 점수 문서로 보충
-                selected_docs = {doc for doc, _, _ in diverse_results}
-                for doc, score, minor_result in top_candidates:
-                    if doc not in selected_docs:
-                        diverse_results.append((doc, score, minor_result))
-                        if len(diverse_results) >= 3:
-                            break
+        filtered_docs = docs_with_scores
+        print("   - 지역 필터가 없어 모든 문서 사용")
 
-            # 점수 순으로 정렬하고 상위 3개 결과 반환
-            diverse_results.sort(key=lambda x: x[1], reverse=True)
-            top_docs = [doc for doc, _, _ in diverse_results[:3]]
-            
-            # 선택된 문서 분석
-            print("\n=== 선택된 문서 분석 ===")
-            for i, (doc, score, minor_result) in enumerate(diverse_results[:3], 1):
-                doc_content = doc.page_content.lower()
-                found_types = minor_result["found_types"]
-                matching_keywords = minor_result["matching_keywords"]
-                
-                print(f"\n문서 {i} 분석 (최종 점수: {score:.4f}):")
-                print(f"내용: {doc.page_content[:150]}...")
-                
-                # 마이너 키워드 분석 정보 출력
-                if found_types:
-                    print(f"   - 발견된 마이너 키워드 타입: {', '.join(found_types)}")
-                    
-                    # 세부 키워드 매칭 정보 출력
-                    for found_type in found_types:
-                        matched_keywords = matching_keywords.get(found_type, [])
-                        if matched_keywords:
-                            print(f"     → {found_type} 키워드: {', '.join(matched_keywords)}")
-                    
-                    # 요청된 마이너 키워드와 매칭되는 타입 강조
-                    matching_requested = set(found_types) & set(requested_minor_types)
-                    if matching_requested:
-                        print(f"   ⭐ 요청한 마이너 키워드와 일치: {', '.join(matching_requested)}")
-                else:
-                    print("   - 마이너 키워드가 발견되지 않았습니다.")
+    # 카테고리 기반 필터링 (이벤트가 아닐 경우)
+    if not is_event and category:
+        category_filtered = []
+        category_keywords = categories.get(category, [])
+        for doc, score in filtered_docs:
+            content = doc.page_content.lower()
+            if any(keyword in content for keyword in category_keywords):
+                category_filtered.append((doc, score))
+        if category_filtered:  # 필터링 결과가 있는 경우만 적용
+            filtered_docs = category_filtered
+            print(f"   - 카테고리 필터링 결과: {len(filtered_docs)}개 문서")
         else:
-            # 일반 검색인 경우 상위 3개 결과
-            top_docs = vector_results[:3]
+            print(f"   - 카테고리 '{category}' 필터링 결과가 없어 이전 결과 유지")
+
+    # 4. 마이너 키워드 점수 계산 및 적용
+    final_results = []
+    print("\n4. 마이너 키워드 점수 계산 중...")
+    
+    for doc, vector_score in filtered_docs:
+        # 문서에서 마이너 키워드 점수 계산
+        minor_score, found_types = check_minor_keywords_in_doc(doc.page_content)
         
-        return {**state, "retrieved_docs": top_docs}
+        # 최종 점수 계산 (벡터 점수 * 벡터 가중치 + 마이너 점수 * 키워드 가중치)
+        final_score = vector_score * vector_weight + minor_score * keyword_weight
+        
+        # 결과에 추가 정보 포함
+        final_results.append({
+            "doc": doc,
+            "score": final_score,
+            "vector_score": vector_score,
+            "minor_score": minor_score,
+            "minor_types": found_types
+        })
+    
+    # 점수 기준 정렬
+    final_results.sort(key=lambda x: x["score"], reverse=True)
+    
+    # 상위 결과 선택 (최대 5개)
+    top_k = min(5, len(final_results))
+    selected_results = final_results[:top_k]
+    
+    # 결과 출력
+    print(f"\n=== 상위 {top_k}개 결과 ===")
+    for i, result in enumerate(selected_results, 1):
+        doc = result["doc"]
+        minor_types = result["minor_types"]
+        
+        # 문서 내용 요약 (첫 50자)
+        content_preview = doc.page_content[:50] + "..." if len(doc.page_content) > 50 else doc.page_content
+        
+        print(f"\n{i}. 문서 (점수: {result['score']:.4f}):")
+        print(f"   - 내용 미리보기: {content_preview}")
+        print(f"   - 벡터 점수: {result['vector_score']:.4f}, 마이너 점수: {result['minor_score']:.4f}")
+        
+        if minor_types:
+            print(f"   - 발견된 마이너 키워드 유형: {', '.join(minor_types)}")
+            # 마이너 키워드 예시 추출 및 출력
+            for keyword_type in minor_types:
+                keywords = minor_keyword_groups[keyword_type]
+                found_keywords = [kw for kw in keywords if kw in doc.page_content.lower()]
+                if found_keywords:
+                    print(f"     * {keyword_type} 예시: {', '.join(found_keywords[:3])}")
+        else:
+            print("   - 마이너 키워드가 발견되지 않았습니다")
+
+    # 최종 선택된 문서들만 추출
+    retrieved_docs = [result["doc"] for result in selected_results]
+    
+    # 처리 시간 출력
+    total_time = time.time() - start_time
+    print(f"\n=== 검색 완료 (총 {total_time:.2f}초) ===")
+
+    return {**state, "retrieved_docs": retrieved_docs}

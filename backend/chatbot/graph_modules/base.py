@@ -86,26 +86,6 @@ def check_query_type(query: str) -> str:
             
     return "general"  # 기본값은 일반 검색
 
-
-# 마이너 키워드 추출 함수
-def extract_minor_keywords(query: str) -> List[str]:
-    """쿼리에서 마이너 키워드 추출"""
-    keyword_groups = {
-        "숨은": ["숨은", "숨겨진", "알려지지 않은", "비밀", "히든", "hidden", "secret", "잘 모르는", "남들이 모르는", "나만 아는", "나만 알고 있는", "붐비지 않는", "한적한"],
-        "우연": ["우연히", "우연한", "우연히 발견한", "우연히 알게 된", "우연히 찾은", "우연히 방문한", "우연히 가게 된"],
-        "로컬": ["로컬", "현지인", "주민", "동네", "단골", "local", "근처", "주변"]
-    }
-    
-    query_lower = query.lower()
-    minor_types = []
-    
-    for minor_type, keywords in keyword_groups.items():
-        if any(keyword in query_lower for keyword in keywords):
-            minor_types.append(minor_type)
-    
-    return minor_types
-
-
 # 네이버 검색 결과 형식 변환기
 def format_naver_results(places: List[Dict]) -> str:
     """네이버 검색 결과를 텍스트로 포맷팅"""
