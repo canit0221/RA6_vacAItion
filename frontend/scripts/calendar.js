@@ -208,88 +208,65 @@ class Calendar {
         // 현재 표시 중인 년월 계산
         const currentYearMonth = `${this.currentYear}${(this.currentMonth + 1).toString().padStart(2, '0')}`;
         
-        // 날씨 데이터 처리 - 여러 날씨 데이터 소스 지원
+        // 날씨 데이터 처리 - 단순화된 방식으로 처리
         const currentMonthWeather = [];
         
         // 1. API에서 가져온 weather 배열 처리
-        if (Array.isArray(weatherData)) {
-            const apiWeather = weatherData.filter(w => {
-                // YYYYMMDD 또는 YYYY-MM-DD 형식 모두 지원
+        if (Array.isArray(weatherData) && weatherData.length > 0) {
+            weatherData.forEach(w => {
                 if (w.date && typeof w.date === 'string') {
                     // 날짜 형식 통일 (하이픈 제거)
                     const normalizedDate = w.date.replace(/-/g, '');
-                    return normalizedDate.substring(0, 6) === currentYearMonth;
+                    if (normalizedDate.substring(0, 6) === currentYearMonth) {
+                        currentMonthWeather.push({
+                            date: normalizedDate,
+                            icon: w.icon || '',
+                            weather_main: w.weather_main || ''
+                        });
+                    }
                 }
-                return false;
             });
-            
-            currentMonthWeather.push(...apiWeather);
         }
         
-        // 2. 일정에 포함된 날씨 정보 처리
+        // 2. 일정에 포함된 날씨 정보 처리 - 중복 방지
         if (Array.isArray(schedules)) {
             schedules.forEach(schedule => {
-                // 날짜와 날씨 정보가 있는 일정만 처리
-                if (schedule.date && (schedule.weather_main || schedule.weather_icon)) {
-                    let normalizedDate = '';
-                    
-                    // 날짜 정규화
-                    if (typeof schedule.date === 'string') {
-                        if (schedule.date.includes('-')) {
-                            // YYYY-MM-DD 형식
-                            const parts = schedule.date.split('-');
-                            normalizedDate = `${parts[0]}${parts[1]}${parts[2]}`;
-                        } else if (schedule.date.length === 8) {
-                            // YYYYMMDD 형식
-                            normalizedDate = schedule.date;
-                        }
-                    }
-                    
-                    if (normalizedDate.substring(0, 6) === currentYearMonth) {
-                        // 날씨 객체 생성
-                        const weatherObj = {
-                            date: normalizedDate,
-                            // DB에 저장된 날씨 아이콘 사용
-                            icon: schedule.weather_icon || '',
-                            // DB에 저장된 날씨 상태 사용
-                            weather_main: schedule.weather_main || ''
-                        };
-                        
-                        // 기존 날씨 데이터와 중복되지 않도록 추가
-                        if (!currentMonthWeather.some(w => w.date === normalizedDate)) {
-                            currentMonthWeather.push(weatherObj);
-                        }
+                if (!schedule.date) return;
+                
+                let normalizedDate = '';
+                if (typeof schedule.date === 'string') {
+                    if (schedule.date.includes('-')) {
+                        // YYYY-MM-DD 형식
+                        const parts = schedule.date.split('-');
+                        normalizedDate = `${parts[0]}${parts[1]}${parts[2]}`;
+                    } else if (schedule.date.length === 8) {
+                        // YYYYMMDD 형식
+                        normalizedDate = schedule.date;
                     }
                 }
                 
-                // weather 객체가 있는 경우 (백엔드 응답에서 전달된 날씨 정보)
-                if (schedule.date && schedule.weather && typeof schedule.weather === 'object') {
-                    let normalizedDate = '';
+                if (normalizedDate && normalizedDate.substring(0, 6) === currentYearMonth) {
+                    // 날씨 정보가 있는 경우만 처리
+                    let icon = '';
+                    let main = '';
                     
-                    // 날짜 정규화
-                    if (typeof schedule.date === 'string') {
-                        if (schedule.date.includes('-')) {
-                            // YYYY-MM-DD 형식
-                            const parts = schedule.date.split('-');
-                            normalizedDate = `${parts[0]}${parts[1]}${parts[2]}`;
-                        } else if (schedule.date.length === 8) {
-                            // YYYYMMDD 형식
-                            normalizedDate = schedule.date;
-                        }
+                    // 직접 포함된 날씨 정보
+                    if (schedule.weather_icon) icon = schedule.weather_icon;
+                    if (schedule.weather_main) main = schedule.weather_main;
+                    
+                    // weather 객체에 포함된 날씨 정보
+                    if (schedule.weather && typeof schedule.weather === 'object') {
+                        if (schedule.weather.icon) icon = schedule.weather.icon;
+                        if (schedule.weather.weather_main) main = schedule.weather.weather_main;
                     }
                     
-                    if (normalizedDate.substring(0, 6) === currentYearMonth) {
-                        // 날씨 객체 생성
-                        const weatherObj = {
+                    // 날씨 정보가 있고 해당 날짜에 아직 날씨 정보가 없는 경우에만 추가
+                    if ((icon || main) && !currentMonthWeather.some(w => w.date === normalizedDate)) {
+                        currentMonthWeather.push({
                             date: normalizedDate,
-                            icon: schedule.weather.icon || '',
-                            weather_main: schedule.weather.weather_main || ''
-                        };
-                        
-                        // 기존 날씨 데이터와 중복되지 않도록 추가
-                        if (!currentMonthWeather.some(w => w.date === normalizedDate)) {
-                            currentMonthWeather.push(weatherObj);
-                        }
+                            icon: icon,
+                            weather_main: main
+                        });
                     }
                 }
             });
