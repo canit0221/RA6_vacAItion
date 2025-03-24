@@ -1,5 +1,5 @@
 // 상수 정의
-const BACKEND_BASE_URL = 'http://localhost:8000'; // 백엔드 기본 URL
+const BACKEND_BASE_URL = 'https://vacaition.life'; // 백엔드 기본 URL
 const ACCESS_TOKEN_KEY = 'access_token'; // 로컬 스토리지에 저장된 토큰 키 이름
 const USERNAME_KEY = 'username';
 
@@ -10,6 +10,16 @@ window.deleteInProgress = false;   // 새로운 삭제 진행 중 플래그
 // 전역 변수로 요청 중 상태 관리
 let isSubmitting = false;
 
+// UI 업데이트 함수
+function updateUI() {
+    const userNickname = localStorage.getItem('userNickname');
+    const profileNavLink = document.getElementById('profileNavLink');
+    
+    if (userNickname && profileNavLink) {
+        profileNavLink.textContent = `${userNickname}님의 프로필`;
+    }
+}
+
 // 페이지 로드 시 실행
 document.addEventListener('DOMContentLoaded', () => {
     // 직접 일정 불러오기 함수 호출 추가
@@ -19,6 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!checkLoginStatus()) {
         return;
     }
+    
+    // UI 업데이트 추가
+    updateUI();
     
     // 일정을 불러오는 중임을 표시
     showInfoMessage('일정을 불러오는 중입니다...');
@@ -204,7 +217,7 @@ function checkLoginStatus() {
     const accessToken = localStorage.getItem('access_token');
     if (!accessToken) {
         // 비로그인 상태: 로그인 페이지로 리다이렉트
-        window.location.replace('login.html');
+        window.location.replace('../pages/login.html');
         return false;
     }
     return true;
@@ -282,7 +295,7 @@ function initializeMiniCalendar(selectedDate) {
                 const newDate = new Date(currentYear, currentMonth, day);
                 // ISO 문자열 대신 로컬 날짜 형식 사용
                 const dateStr = formatLocalDate(newDate);
-                window.location.href = `add-schedule.html?date=${dateStr}`;
+                window.location.href = `../pages/add-schedule.html?date=${dateStr}`;
             });
             
             calendarGrid.appendChild(dayElement);
@@ -444,7 +457,7 @@ async function fetchWeatherForDate(dateStr) {
                 if (result.icon) {
                     // 아이콘을 기반으로 텍스트 추론
                     result.text = getWeatherTextFromIcon(result.icon);
-                } else {
+    } else {
                     result.text = '알 수 없는 날씨';
                 }
             }
@@ -507,15 +520,21 @@ function getWeatherTextFromIcon(icon) {
 
 // 네비게이션 링크 설정
 function setupNavLinks() {
-    // 로그아웃 링크 (id 기반으로 찾기)
-    const logoutLink = document.querySelector('#logoutLink');
+    const navLinks = document.querySelectorAll('nav a');
     
-    if (logoutLink) {
-        logoutLink.addEventListener('click', (e) => {
+    navLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
             e.preventDefault();
-            logout();
+            
+            if (this.textContent.includes('Home')) {
+                window.location.href = '../index.html';
+            } else if (this.id === 'profileNavLink') {
+                window.location.href = '../pages/profile.html';
+            } else if (this.textContent.includes('Logout')) {
+                logout();
+            }
         });
-    }
+    });
 }
 
 // 폼 제출 이벤트 설정
@@ -652,17 +671,17 @@ async function saveScheduleToDB() {
         // 인증 토큰 확인
         const accessToken = localStorage.getItem('access_token');
         if (!accessToken) {
-            window.location.replace('login.html');
+            window.location.replace('../pages/login.html');
             return;
         }
         
         // 기존 일정이 있는지 먼저 확인 (중복 저장 방지)
         const checkResponse = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/`, {
-            headers: {
-                'Authorization': `Bearer ${accessToken}`
-            }
-        });
-        
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            });
+            
         if (!checkResponse.ok) {
             throw new Error(`일정 조회 실패: ${checkResponse.status}`);
         }
@@ -835,7 +854,7 @@ function showMessage(message, type) {
     
     // 일정 시간 후 메시지 자동 제거 (성공 및 정보 메시지만)
     if (type === 'success' || type === 'info') {
-        setTimeout(() => {
+    setTimeout(() => {
             if (messageElement.parentNode) {
                 messageElement.remove();
             }
@@ -887,9 +906,9 @@ async function submitSchedule() {
     }
     
     try {
-        // 데이터 준비
-        const urlParams = new URLSearchParams(window.location.search);
-        const dateParam = urlParams.get('date');
+    // 데이터 준비
+    const urlParams = new URLSearchParams(window.location.search);
+    const dateParam = urlParams.get('date');
         if (!dateParam) {
             throw new Error('날짜 정보가 없습니다.');
         }
@@ -905,17 +924,17 @@ async function submitSchedule() {
         const memo = document.getElementById('memo').value.trim();
         
         // 일정 데이터 객체
-        const scheduleData = {
+    const scheduleData = {
             date: normalizedDate,
-            location: location,
+        location: location,
             companion: companion || '',
             memo: memo || ''
-        };
-        
+    };
+    
         // 토큰 확인
         const accessToken = localStorage.getItem('access_token');
         if (!accessToken) {
-            window.location.href = 'login.html';
+            window.location.href = '../pages/login.html';
             return;
         }
         
@@ -969,12 +988,12 @@ async function submitSchedule() {
             });
         } else {
             response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`
-                },
-                body: JSON.stringify(scheduleData)
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify(scheduleData)
             });
         }
         
@@ -988,98 +1007,98 @@ async function submitSchedule() {
                 
                 // 방법 1: 직접 window.location.href 변경 (기본 방법)
                 try {
-                    window.location.href = 'calendar.html';
+        window.location.href = '../index.html';
                 } catch (e) {
                     // 방법 1 실패
                 }
-                
+        
                 // 방법 2: setTimeout으로 지연 후 이동 시도
-                setTimeout(() => {
+        setTimeout(() => {
                     try {
-                        window.location.replace('calendar.html');
+                        window.location.replace('../index.html');
                     } catch (e) {
                         // 방법 2 실패
                         
                         // 방법 3: window.open 사용
                         try {
-                            window.open('calendar.html', '_self');
+                            window.open('../index.html', '_self');
                         } catch (e2) {
                             // 방법 3 실패
                             
                             // 방법 4: 홈 버튼 찾아서 클릭
-                            const homeButton = document.querySelector('a[href="calendar.html"]');
-                            if (homeButton) {
-                                homeButton.click();
-                            } else {
+                            const homeButton = document.querySelector('a[href="../index.html"]');
+            if (homeButton) {
+                homeButton.click();
+            } else {
                                 // 방법 5: history API 사용
-                                window.history.pushState({}, '', 'calendar.html');
+                                window.history.pushState({}, '', '../index.html');
                                 window.location.reload();
-                            }
+            }
                         }
                     }
                 }, 500);
                 
-            } catch (error) {
+    } catch (error) {
                 // 오류 처리
-            } finally {
+    } finally {
                 // 버튼 상태 복원 (에러 발생 시에만 필요)
                 if (isSubmitting) { // 이미 페이지 이동 중이 아닌 경우에만
                     if (submitBtn) {
                         submitBtn.disabled = false;
                         submitBtn.textContent = '저장 후 캘린더로 이동';
                     }
-                    isSubmitting = false;
+        isSubmitting = false;
                 }
-            }
-        }
+    }
+}
+
+// 로그아웃 함수
+async function logout() {
+    try {
+        const refreshToken = localStorage.getItem('refresh_token');
+        const accessToken = localStorage.getItem('access_token');
         
-        // 로그아웃 함수
-        async function logout() {
-            try {
-                const refreshToken = localStorage.getItem('refresh_token');
-                const accessToken = localStorage.getItem('access_token');
-                
                 // 로그아웃 API, 호출 시도
-                if (refreshToken && accessToken) {
-                    try {
-                        const response = await fetch(`${BACKEND_BASE_URL}/logout/`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${accessToken}`
-                            },
-                            body: JSON.stringify({
-                                refresh: refreshToken
-                            })
-                        });
-                    } catch (error) {
-                        // API 호출 오류
-                    }
-                }
+        if (refreshToken && accessToken) {
+            try {
+                const response = await fetch(`${BACKEND_BASE_URL}/logout/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({
+                        refresh: refreshToken
+                    })
+                });
             } catch (error) {
-                // 처리 오류
-            } finally {
-                // 로컬 스토리지에서 토큰 제거 (항상 실행)
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('refresh_token');
-                localStorage.removeItem('username');
-                
-                // 페이지 이동
-                setTimeout(() => {
-                    window.location.href = 'login.html';
-                }, 500);
+                        // API 호출 오류
             }
         }
+    } catch (error) {
+                // 처리 오류
+    } finally {
+        // 로컬 스토리지에서 토큰 제거 (항상 실행)
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('username');
         
-        // 특정 날짜의 일정 불러오기
-        async function fetchScheduleForDate(date) {
+                // 페이지 이동
+        setTimeout(() => {
+            window.location.href = '../pages/login.html';
+                }, 500);
+    }
+}
+
+// 특정 날짜의 일정 불러오기
+async function fetchScheduleForDate(date) {
             try {
                 // 1. 접근 토큰 확인
                 const token = localStorage.getItem('access_token');
                 if (!token) {
-                    return;
-                }
-                
+            return;
+        }
+        
                 // 2. 날짜 정규화 - YYYY-MM-DD 형식 확보
                 const normalizedDate = normalizeDate(date);
                 
@@ -1097,14 +1116,14 @@ async function submitSchedule() {
                 const response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/?date=${normalizedDate}`, {
                     headers: {'Authorization': `Bearer ${token}`}
                 });
-                
-                if (!response.ok) {
+        
+        if (!response.ok) {
                     showErrorMessage('일정을 불러올 수 없습니다.');
-                    return;
-                }
-                
+            return;
+        }
+        
                 // 4. 응답 데이터 가져오기
-                const data = await response.json();
+        const data = await response.json();
                 
                 // 5. 배열 형태로 변환
                 let schedules = [];
@@ -1167,54 +1186,54 @@ async function submitSchedule() {
                 }
             } catch (error) {
                 // 오류 메시지 표시
-                showErrorMessage('일정을 불러오는 중 오류가 발생했습니다.');
+        showErrorMessage('일정을 불러오는 중 오류가 발생했습니다.');
                 return false;
-            }
+    }
+}
+
+        // 일정 삭제 함수
+window.deleteSchedule = function() {
+    // 이미 실행 중이면 중복 실행 방지
+    if (window.deleteInProgress === true) {
+        return;
+    }
+    
+    // 실행 중 표시
+    window.deleteInProgress = true;
+    
+    try {
+        // URL에서 날짜 매개변수 추출
+        const urlParams = new URLSearchParams(window.location.search);
+        const dateParam = urlParams.get('date');
+        if (!dateParam) {
+            window.deleteInProgress = false;
+            return;
         }
         
-        // 일정 삭제 함수
-        window.deleteSchedule = function() {
-            // 이미 실행 중이면 중복 실행 방지
-            if (window.deleteInProgress === true) {
-                return;
-            }
-            
-            // 실행 중 표시
-            window.deleteInProgress = true;
-            
-            try {
-                // URL에서 날짜 매개변수 추출
-                const urlParams = new URLSearchParams(window.location.search);
-                const dateParam = urlParams.get('date');
-                if (!dateParam) {
-                    window.deleteInProgress = false;
-                    return;
-                }
-                
                 // 날짜 정규화
                 const normalizedDate = normalizeDate(dateParam);
                 
                 if (!normalizedDate) {
-                    window.deleteInProgress = false;
-                    return;
-                }
-                
+            window.deleteInProgress = false;
+            return;
+        }
+        
                 // 날짜를 연월일로 분리
                 const [year, month, day] = normalizedDate.split('-').map(num => parseInt(num, 10));
                 
                 // 토큰 확인
                 const token = localStorage.getItem('access_token');
                 if (!token) {
-                    window.deleteInProgress = false;
-                    return;
-                }
-                
+            window.deleteInProgress = false;
+            return;
+        }
+        
                 // 확인 대화상자
                 if (!confirm('이 일정을 삭제하시겠습니까?')) {
-                    window.deleteInProgress = false;
-                    return;
-                }
-                
+            window.deleteInProgress = false;
+            return;
+        }
+        
                 // 삭제 버튼 상태 변경
                 const deleteBtn = document.querySelector('.delete-btn');
                 if (deleteBtn) {
@@ -1261,16 +1280,16 @@ async function submitSchedule() {
                     
                     // 일정 ID로 삭제 요청
                     return fetch(`${BACKEND_BASE_URL}/calendar/schedules/${matchingSchedule.id}/`, {
-                        method: 'DELETE',
-                        headers: {
+                method: 'DELETE',
+                headers: {
                             'Authorization': `Bearer ${token}`
-                        }
-                    });
-                })
-                .then(response => {
+                }
+            });
+        })
+        .then(response => {
                     if (!response) return; // 이전 단계에서 오류 발생
-                    
-                    if (response.status === 204 || response.status === 200) {
+            
+            if (response.status === 204 || response.status === 200) {
                         // 삭제 성공
                         
                         // 1. 폼 필드 초기화
@@ -1279,10 +1298,10 @@ async function submitSchedule() {
                         document.getElementById('memo').value = '';
                         
                         // 2. 1.5초 후 캘린더로 이동 (색상 업데이트 위해)
-                        setTimeout(() => {
-                            window.location.href = 'calendar.html';
+                setTimeout(() => {
+                    window.location.href = '../index.html';
                         }, 500);
-                    } else {
+            } else {
                         // 삭제 실패
                         
                         // 버튼 상태 복원
@@ -1293,24 +1312,24 @@ async function submitSchedule() {
                     }
                     
                     window.deleteInProgress = false;
-                })
-                .catch(error => {
+        })
+        .catch(error => {
                     // 버튼 상태 복원
-                    if (deleteBtn) {
-                        deleteBtn.disabled = false;
-                        deleteBtn.textContent = '일정 삭제하기';
-                    }
-                    
-                    window.deleteInProgress = false;
-                });
+            if (deleteBtn) {
+                deleteBtn.disabled = false;
+                deleteBtn.textContent = '일정 삭제하기';
+            }
+            
+            window.deleteInProgress = false;
+        });
             } catch (error) {
                 window.deleteInProgress = false;
-                
+        
                 // 버튼 상태 복원
-                const deleteBtn = document.querySelector('.delete-btn');
-                if (deleteBtn) {
-                    deleteBtn.disabled = false;
-                    deleteBtn.textContent = '일정 삭제하기';
+        const deleteBtn = document.querySelector('.delete-btn');
+        if (deleteBtn) {
+            deleteBtn.disabled = false;
+            deleteBtn.textContent = '일정 삭제하기';
                 }
             }
         };

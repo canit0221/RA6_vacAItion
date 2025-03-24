@@ -1,4 +1,4 @@
-const BACKEND_BASE_URL = 'http://localhost:8000';
+const BACKEND_BASE_URL = 'https://vacaition.life';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 로그인 상태 확인
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (deleteAccountLink) {
         deleteAccountLink.addEventListener('click', (e) => {
             e.preventDefault();
-            window.location.href = 'delete-account.html';
+            window.location.href = '../pages/delete-account.html';
         });
     }
 });
@@ -56,7 +56,7 @@ function checkLoginStatus() {
     } else {
         // 비로그인 상태면 로그인 페이지로 리다이렉트
         alert('로그인이 필요한 페이지입니다.');
-        window.location.href = 'login.html';
+        window.location.href = '../pages/login.html';
     }
 }
 
@@ -70,8 +70,6 @@ async function loadProfileData() {
     }
     
     try {
-        // 백엔드 API URL 경로 설정
-        // 백엔드 urls.py: path("", include("account.urls")) 및 account.urls.py에서 path("users/<str:username>/", ...)
         const response = await fetch(`${BACKEND_BASE_URL}/users/${username}/`, {
             method: 'GET',
             headers: {
@@ -80,35 +78,31 @@ async function loadProfileData() {
         });
         
         const data = await response.json();
-        console.log('프로필 API 응답:', data); // 디버깅을 위한 로그 추가
+        console.log('프로필 API 응답:', data);
         
         if (response.ok) {
-            // 각 요소 참조 (username 제외)
+            // 각 요소 참조
             const nicknameEl = document.getElementById('profile-nickname');
             const emailEl = document.getElementById('profile-email');
             const addressEl = document.getElementById('profile-address');
+            const profileNavLink = document.getElementById('profileNavLink');
             
-            console.log('HTML 요소 확인:', {
-                'profile-nickname': !!nicknameEl,
-                'profile-email': !!emailEl,
-                'profile-address': !!addressEl
-            });
-            
-            // 응답 데이터 필드 확인
-            console.log('응답 데이터 필드:', {
-                'nickname': data.nickname,
-                'email': data.email,
-                'user_address': data.user_address
-            });
-            
-            // 프로필 데이터 표시 (username 제외)
+            // 프로필 데이터 표시
             if (nicknameEl) nicknameEl.textContent = data.nickname || '정보 없음';
             if (emailEl) emailEl.textContent = data.email || '정보 없음';
             if (addressEl) addressEl.textContent = data.user_address || '정보 없음';
+            
+            // 내비게이션 바의 프로필 링크 텍스트 업데이트
+            if (profileNavLink && data.nickname) {
+                profileNavLink.textContent = `${data.nickname}님의 프로필`;
+            }
+            
+            // 닉네임을 로컬 스토리지에 저장 (다른 페이지에서 사용하기 위해)
+            if (data.nickname) {
+                localStorage.setItem('userNickname', data.nickname);
+            }
         } else {
             console.error('프로필 정보 로드 실패:', data);
-            
-            // 에러 메시지 로깅
             console.error('API 오류:', data.message || data.detail || '알 수 없는 오류');
         }
     } catch (error) {
@@ -119,7 +113,7 @@ async function loadProfileData() {
 // 회원정보 수정 페이지로 이동하는 함수
 function redirectToEditProfile() {
     // 회원정보 수정 페이지로 이동
-    window.location.href = 'edit-profile.html';
+    window.location.href = '../pages/edit-profile.html';
 }
 
 // 로그아웃 함수
@@ -129,7 +123,7 @@ async function logout() {
         
         if (!refreshToken) {
             alert('이미 로그아웃 되었습니다.');
-            window.location.href = 'login.html';
+            window.location.href = '../pages/login.html';
             return;
         }
         
@@ -150,7 +144,7 @@ async function logout() {
         localStorage.removeItem('username');
         
         alert('로그아웃 되었습니다.');
-        window.location.href = 'login.html';
+        window.location.href = '../pages/login.html';
     } catch (error) {
         console.error('로그아웃 에러:', error);
         // 에러가 발생해도 로컬 스토리지는 비우기
@@ -158,6 +152,6 @@ async function logout() {
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('username');
         alert('로그아웃 처리 중 오류가 발생했습니다.');
-        window.location.href = 'login.html';
+        window.location.href = '../pages/login.html';
     }
 } 

@@ -33,14 +33,13 @@ pip-delete-this-directory.txt
 **/crawled_contents/
 
 # langchain
-**/db/
-**/event_db/
+*.faiss
+*.pkl
+*.csv
 
-# Django 관련 (마이그레이션 캐시)
+
 *.log
 *.pot
-**/migrations/
-!**/migrations/__init__.py
 
 # 환경 설정 (IDE, 에디터 관련)
 .vscode/

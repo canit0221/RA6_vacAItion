@@ -1,12 +1,12 @@
 from django.apps import AppConfig
 import threading
 import os
-from .RAG_minor_sep import setup_rag
+import logging
+from .graph_chatbot import initialize_graph
 
-# RAG 체인 인스턴스 및 상태 관리
-_rag_instance = None
-_rag_ready = threading.Event()
-_initialization_lock = threading.Lock()
+# 로깅 설정
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 class ChatbotConfig(AppConfig):
@@ -14,34 +14,38 @@ class ChatbotConfig(AppConfig):
     name = "chatbot"
 
     def ready(self):
-        """서버 시작 시 RAG 체인 초기화"""
+        """서버 시작 시 LangGraph 초기화"""
         # 자동 리로드 시 중복 초기화 방지
         if os.environ.get("RUN_MAIN") != "true":
+            logger.info("RUN_MAIN이 true가 아니므로 초기화 건너뜀")
             return
 
-        global _rag_instance, _rag_ready
+        # 이미 초기화된 경우 중복 초기화 방지
+        from .graph_chatbot import _graph_instance, _initialization_in_progress
 
-        def initialize_in_background():
-            global _rag_instance, _rag_ready
-            with _initialization_lock:
-                if _rag_instance is not None:
-                    return
+        if _graph_instance is not None:
+            logger.info("LangGraph 인스턴스가 이미 존재하므로 초기화 건너뜀")
+            return
 
-                try:
-                    print("\n=== 서버 시작: RAG 체인 초기화 시작 ===")
-                    _rag_instance = setup_rag("")
-                    _rag_ready.set()
-                    print("=== RAG 체인 초기화 완료 ===\n")
-                except Exception as e:
-                    print(f"=== RAG 체인 초기화 실패: {e} ===\n")
+        if _initialization_in_progress:
+            logger.info("LangGraph 초기화가 이미 진행 중이므로 건너뜀")
+            return
 
-        # 백그라운드 스레드에서 초기화 실행
-        threading.Thread(target=initialize_in_background, daemon=True).start()
+        # 백그라운드에서 벡터스토어 초기화 시작
+        logger.info("벡터스토어 초기화 시작 (apps.py)")
+        from .graph_modules.data_loader import initialize_vectorstores
 
+        def initialize_all():
+            # 벡터스토어 초기화
+            logger.info("벡터스토어 초기화 중...")
+            initialize_vectorstores()
 
-def get_rag_instance():
-    """초기화된 RAG 체인 인스턴스 반환"""
-    if not _rag_ready.is_set():
-        print("RAG 체인이 아직 초기화되지 않았습니다.")
-        return None
-    return _rag_instance
+            # LangGraph 초기화
+            logger.info("LangGraph 초기화 중...")
+            from .graph_chatbot import initialize_graph_in_background
+
+            initialize_graph_in_background()
+
+        # 백그라운드에서 초기화 시작
+        threading.Thread(target=initialize_all, daemon=True).start()
+        logger.info("벡터스토어 및 LangGraph 초기화 태스크 시작됨")

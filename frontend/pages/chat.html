@@ -5,37 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>vacAItion - 휴일 챗봇</title>
     <link rel="stylesheet" href="../styles/chat.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1 class="logo">vacAItion</h1>
+            <div class="logo">
+                <img src="../logo.png" alt="VacAItion" class="logo-img">
+                <span class="logo-text">vacAItion</span>
+            </div>
             <nav class="main-nav">
                 <ul>
-                    <li><a href="chat.html" class="active">채팅하기</a></li>
-                    <li id="profileLink" style="display: none;"><a href="profile.html">프로필</a></li>
-                    <li id="loginLink"><a href="login.html">로그인</a></li>
-                    <li id="signupLink"><a href="signup.html">회원가입</a></li>
-                    <li id="logoutLink" style="display: none;"><a href="#" id="logoutButton">로그아웃</a></li>
+                    <li><a href="../index.html">Home</a></li>
+                    <li><a href="./profile.html" id="profileNavLink">Profile</a></li>
+                    <li><a href="#" id="logoutButton">Logout</a></li>
                 </ul>
             </nav>
         </header>
         
         <main>
             <div class="chat-container">
-                <div class="chat-sidebar">
-                    <div class="session-header">
-                        <h2>채팅 목록</h2>
-                        <button id="newChatBtn" class="new-chat-btn">새 채팅</button>
-                    </div>
-                    <div class="session-list" id="sessionList">
-                        <!-- 채팅 세션 목록 -->
-                    </div>
-                </div>
-                
                 <div class="chat-main">
                     <div class="chat-header">
                         <h2 id="currentSessionTitle">휴일 채팅</h2>
+                        <div class="connection-info">
+                            <span>서버 상태: </span>
+                            <span id="connection-status" class="status-disconnected">연결 시도 중...</span>
+                        </div>
                     </div>
                     
                     <div class="chat-messages" id="chatMessages">
@@ -58,6 +54,7 @@
         </main>
     </div>
     
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="../scripts/chat.js"></script>
 </body>
 </html> 

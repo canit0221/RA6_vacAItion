@@ -7,18 +7,20 @@
     <link rel="stylesheet" href="../styles/profile.css">
     <!-- Font Awesome 추가 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1 class="logo">vacAItion</h1>
+            <div class="logo">
+                <img src="../logo.png" alt="VacAItion" class="logo-img">
+                <span class="logo-text">vacAItion</span>
+            </div>
             <nav class="main-nav">
                 <ul>
-                    <li><a href="chat.html">채팅하기</a></li>
-                    <li><a href="profile.html" class="active">프로필</a></li>
-                    <li id="loginLink" style="display: none;"><a href="login.html">로그인</a></li>
-                    <li id="signupLink" style="display: none;"><a href="signup.html">회원가입</a></li>
-                    <li id="logoutLink"><a href="#" id="logoutButton">로그아웃</a></li>
+                    <li><a href="../index.html">Home</a></li>
+                    <li><a href="./profile.html" class="active" id="profileNavLink">Profile</a></li>
+                    <li><a href="#" id="logoutButton">Logout</a></li>
                 </ul>
             </nav>
         </header>

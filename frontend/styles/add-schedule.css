@@ -275,86 +275,77 @@ header {
     background-color: #ffebee;
 }
 
-/* 저장 버튼 그룹 */
-.save-buttons {
+/* 저장 버튼 컨테이너 */
+.save-container {
+    width: 100%;
+    margin-bottom: 10px;
     display: flex;
     justify-content: center;
-    gap: 24px;
-    width: 100%;
 }
 
-/* 현재 페이지에서 저장 버튼 */
+/* 저장 버튼 */
 .save-btn {
-    width: 210px;
-    padding: 8px 15px;
-    border: 1px solid #87CEEB;
-    border-radius: 4px;
-    background-color: white;
-    color: #87CEEB;
-    font-size: 14px;
-    font-weight: 500;
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    background-color: #87CEEB;
+    border: none;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .save-btn:hover {
-    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+    background-color: #5f9ea0;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* 캘린더로 이동 버튼 스타일 */
-.submit-btn {
-    width: 210px;
-    padding: 8px 15px;
-    border: none;
-    border-radius: 4px;
-    background-color: #87CEEB;
-    color: white;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
+.save-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.submit-btn:hover {
-    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
-}
-
-/* hue 버튼 컨테이너 - 가운데 정렬과 너비 제한 */
+/* hue 버튼 컨테이너 */
 .hue-container {
+    width: 100%;
     display: flex;
     justify-content: center;
-    width: 100%;
 }
 
-/* hue 버튼 스타일 */
-.hue-btn {  
-    width: 60%;
-    max-width: 500px;
-    padding: 9px 20px;
-    border: 1px solid #3D96F3;
-    border-radius: 4px;
-    background-color: white;
-    color: #3D96F3;
+/* hue 버튼 */
+.hue-btn {
+    width: 100%;
+    padding: 12px 20px;
     font-size: 16px;
     font-weight: 600;
+    color: white;
+    background-color: #87CEEB;
+    border: none;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .hue-btn:hover {
-    background-color: #3D96F3;
-    color: white;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    background-color: #5f9ea0;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .hue-btn:active {
     transform: translateY(0);
-    box-shadow: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .hue-btn:disabled {
-    background-color: rgb(165, 196, 231);
+    background-color: #cccccc;
     cursor: not-allowed;
+    transform: none;
 }
 
 /* 메시지 스타일 */

@@ -1,4 +1,4 @@
-const BACKEND_BASE_URL = 'http://localhost:8000';
+const BACKEND_BASE_URL = 'https://vacaition.life';
 
 // 디버깅용 로그
 console.log('캘린더 페이지 로드됨');
@@ -61,19 +61,19 @@ async function logout() {
         localStorage.removeItem('username');
         
         alert('로그아웃 되었습니다.');
-        window.location.replace('login.html');
+        window.location.replace('./pages/login.html');
     }
 }
 
 // UI 업데이트 함수
 function updateUI() {
     // 사용자 이름 표시
-    const username = localStorage.getItem('username');
-    const profileLinks = document.querySelectorAll('nav.main-nav a');
+    const userNickname = localStorage.getItem('userNickname');
+    const profileNavLink = document.getElementById('profileNavLink');
     
-    // 사용자 이름이 있으면 프로필 링크 텍스트 업데이트
-    if (username && profileLinks.length > 1) {
-        profileLinks[1].textContent = `${username}님의 프로필`;
+    // 사용자 닉네임이 있으면 프로필 링크 텍스트 업데이트
+    if (userNickname && profileNavLink) {
+        profileNavLink.textContent = `${userNickname}님의 프로필`;
     }
 }
 
@@ -81,18 +81,16 @@ function updateUI() {
 function setupEventListeners() {
     const navLinks = document.querySelectorAll('nav.main-nav a');
     
-    // 네비게이션 링크 이벤트 처리
     if (navLinks.length >= 3) {
-        // 홈 링크 (이미 활성화 상태)
+        // 홈 링크는 이미 활성화 상태
         
-        // 프로필 링크 (두 번째 링크)
+        // 프로필 링크
         navLinks[1].addEventListener('click', function(e) {
             e.preventDefault();
-            console.log('프로필 링크 클릭됨');
-            window.location.href = 'profile.html';
+            window.location.href = './pages/profile.html';
         });
         
-        // 로그아웃 링크 (세 번째 링크)
+        // 로그아웃 링크
         navLinks[2].addEventListener('click', function(e) {
             e.preventDefault();
             console.log('로그아웃 링크 클릭됨');
@@ -107,7 +105,7 @@ function setupEventListeners() {
 function checkLoginStatus() {
     const accessToken = localStorage.getItem('access_token');
     if (!accessToken) {
-        window.location.replace('login.html');
+        window.location.replace('./pages/login.html');
         return false;
     }
     return true;
@@ -175,7 +173,7 @@ class Calendar {
                 localStorage.removeItem('access_token');
                 localStorage.removeItem('refresh_token');
                 localStorage.removeItem('username');
-                window.location.replace('login.html');
+                window.location.replace('./pages/login.html');
                 return;
             }
             
@@ -509,7 +507,7 @@ class Calendar {
                 const dayVal = this.selectedDate.getDate().toString().padStart(2, '0');
                 const dateStr = `${year}-${month}-${dayVal}`;
                 console.log(`선택한 날짜: ${year}년 ${month}월 ${dayVal}일, URL 파라미터: ${dateStr}`);
-                window.location.href = `add-schedule.html?date=${dateStr}`;
+                window.location.href = `./pages/add-schedule.html?date=${dateStr}`;
             });
 
             this.daysContainer.appendChild(dayElement);

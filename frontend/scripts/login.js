@@ -1,4 +1,4 @@
-const BACKEND_BASE_URL = 'http://localhost:8000';
+const BACKEND_BASE_URL = 'https://vacaition.life';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 이미 로그인된 상태인지 확인
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('username', data.username);
                 
                 // 알림창 없이 바로 채팅 페이지로 이동
-                window.location.href = 'calendar.html';
+                window.location.href = '../index.html';
             } else {
                 alert(data.message || '로그인에 실패했습니다.');
             }
@@ -59,6 +59,6 @@ function checkAlreadyLoggedIn() {
     const accessToken = localStorage.getItem('access_token');
     if (accessToken) {
         // 이미 로그인되어 있다면 채팅 페이지로 이동
-        window.location.href = 'calendar.html';
+        window.location.href = '../index.html';
     }
 }
