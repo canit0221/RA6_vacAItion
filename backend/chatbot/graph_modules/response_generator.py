@@ -3,33 +3,34 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from .base import GraphState, format_documents, format_naver_results
 
+
 def response_generator(state: GraphState) -> GraphState:
     """응답 생성 노드
-    
+
     검색 결과를 기반으로 사용자 질문에 대한 응답을 생성합니다.
-    
+
     Args:
         state: 현재 그래프 상태
-        
+
     Returns:
         업데이트된 그래프 상태
     """
     print("\n=== 응답 생성 시작 ===")
-    
+
     try:
         question = state["question"]
         retrieved_docs = state.get("retrieved_docs", [])
         naver_results = state.get("naver_results", [])
         is_event = state.get("is_event", False)
-        
+
         # 문서 포맷팅
         context = format_documents(retrieved_docs)
         naver_context = format_naver_results(naver_results)
-        
+
         # LLM 설정 (온도를 높여 더 다양한 응답 생성)
         api_key = os.getenv("OPENAI_API_KEY")
-        llm = ChatOpenAI(openai_api_key=api_key, model="gpt-4o")
-        
+        llm = ChatOpenAI(openai_api_key=api_key, model="o3-mini")
+
         # 간소화된 프롬프트 템플릿
         system_message = """
         당신은 한국어로 응답하는 여행 및 맛집 추천 전문가입니다.
@@ -55,7 +56,7 @@ def response_generator(state: GraphState) -> GraphState:
         6. 문단 구분이 필요한 곳에는 반드시 빈 줄(줄바꿈 두 번)을 넣어주세요.
         7. 설명이 길 경우 중간에 줄바꿈을 적절히 넣어 가독성을 높여주세요.
         """
-        
+
         # 일반 검색용 프롬프트
         general_user_template = """
         다음은 두 가지 검색 시스템에서 찾은 장소 정보입니다:
@@ -111,7 +112,7 @@ def response_generator(state: GraphState) -> GraphState:
 
             ✨ 추가 팁: [방문 시 알아두면 좋을 정보나 꿀팁을 공유해주세요]  
             """
-        
+
         # 이벤트 검색용 프롬프트
         event_user_template = """
         질문: {question}
@@ -166,26 +167,25 @@ def response_generator(state: GraphState) -> GraphState:
         
         참고: 이벤트는 최대 3개까지만 제공하세요. 검색 결과에 따라 1~3개의 이벤트만 추천해도 됩니다.
         """
-        
+
         # 쿼리 타입에 따라 적절한 프롬프트 선택
         user_template = event_user_template if is_event else general_user_template
-        
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", system_message),
-            ("user", user_template)
-        ])
-        
+
+        prompt = ChatPromptTemplate.from_messages(
+            [("system", system_message), ("user", user_template)]
+        )
+
         # 응답 생성
         chain = prompt | llm
-        
+
         # 메타데이터가 풍부한 문서 포맷팅
         def format_with_detailed_metadata(docs):
             """문서를 메타데이터와 함께 상세히 포맷팅"""
             formatted_docs = []
-            
+
             for i, doc in enumerate(docs, 1):
                 content = doc.page_content
-                
+
                 # 모든 메타데이터 수집
                 meta = doc.metadata
                 url = meta.get("url", "")
@@ -195,13 +195,20 @@ def response_generator(state: GraphState) -> GraphState:
                 address_detail = meta.get("address_detail", "")
                 date = meta.get("date", "")
                 tag = meta.get("tag", "")
-                
+
                 # URL 추출 강화
                 if not url or url == "None":
                     # 본문에서 URL 찾기
                     url_patterns = ["http://", "https://", "www."]
-                    url_indicators = ["URL:", "url:", "참고:", "링크:", "사이트:", "홈페이지:"]
-                    
+                    url_indicators = [
+                        "URL:",
+                        "url:",
+                        "참고:",
+                        "링크:",
+                        "사이트:",
+                        "홈페이지:",
+                    ]
+
                     # URL 표시자가 있는 경우
                     for indicator in url_indicators:
                         if indicator in content:
@@ -211,12 +218,15 @@ def response_generator(state: GraphState) -> GraphState:
                                 end_idx = content.find(end_char, start_idx)
                                 if end_idx > 0:
                                     potential_url = content[start_idx:end_idx].strip()
-                                    if any(pattern in potential_url for pattern in url_patterns):
+                                    if any(
+                                        pattern in potential_url
+                                        for pattern in url_patterns
+                                    ):
                                         url = potential_url
                                         break
                             if url:  # URL을 찾았으면 루프 종료
                                 break
-                    
+
                     # 본문에서 직접 URL 패턴 찾기
                     if not url:
                         for pattern in url_patterns:
@@ -232,34 +242,45 @@ def response_generator(state: GraphState) -> GraphState:
                                 if potential_url:
                                     url = potential_url
                                     break
-                
+
                 # URL 형식 확인 및 보정
-                if url and not (url.startswith("http://") or url.startswith("https://")):
+                if url and not (
+                    url.startswith("http://") or url.startswith("https://")
+                ):
                     if url.startswith("www."):
                         url = "https://" + url
                     # 그 외의 경우는 잘못된 URL일 가능성이 있음
-                
+
                 # URL이 없는 경우 표시
                 if not url or url == "None":
                     url = "URL 정보 없음"
-                
+
                 # 위치 정보 통합
                 location_info = "위치 정보 없음"
                 if location or address or address_detail:
                     parts = []
-                    if location: 
+                    if location:
                         parts.append(location)
                     if address:
                         parts.append(address)
                     if address_detail:
                         parts.append(address_detail)
                     location_info = " ".join(parts)
-                
+
                 # 위치 정보가 없는 경우 본문에서 찾기
                 if location_info == "위치 정보 없음" and content:
                     # 주소 패턴 찾기
                     lower_content = content.lower()
-                    address_indicators = ["위치:", "주소:", "서울", "대한민국", "강남구", "종로구", "송파구", "마포구"]
+                    address_indicators = [
+                        "위치:",
+                        "주소:",
+                        "서울",
+                        "대한민국",
+                        "강남구",
+                        "종로구",
+                        "송파구",
+                        "마포구",
+                    ]
                     for indicator in address_indicators:
                         if indicator.lower() in lower_content:
                             start_idx = lower_content.find(indicator.lower())
@@ -277,7 +298,16 @@ def response_generator(state: GraphState) -> GraphState:
                 place_name = title
                 if content:
                     # 장소명 표시 패턴 찾기
-                    place_name_indicators = ["이름:", "장소:", "명칭:", "상호:", "점포명:", "가게 이름:", "카페 이름:", "음식점:"]
+                    place_name_indicators = [
+                        "이름:",
+                        "장소:",
+                        "명칭:",
+                        "상호:",
+                        "점포명:",
+                        "가게 이름:",
+                        "카페 이름:",
+                        "음식점:",
+                    ]
                     for indicator in place_name_indicators:
                         if indicator in content:
                             start_idx = content.find(indicator) + len(indicator)
@@ -288,7 +318,7 @@ def response_generator(state: GraphState) -> GraphState:
                             if extracted_name:
                                 place_name = extracted_name
                                 break
-                    
+
                     # "~ 맛집", "~ 카페" 패턴 찾기
                     if "맛집" in content or "카페" in content:
                         lines = content.split("\n")
@@ -298,11 +328,21 @@ def response_generator(state: GraphState) -> GraphState:
                                 parts = line.split()
                                 if len(parts) >= 2:
                                     for part in parts:
-                                        if len(part) >= 2 and not any(keyword in part for keyword in ["추천", "좋은", "유명", "인기"]):
-                                            if place_name == title:  # 아직 추출되지 않은 경우만
+                                        if len(part) >= 2 and not any(
+                                            keyword in part
+                                            for keyword in [
+                                                "추천",
+                                                "좋은",
+                                                "유명",
+                                                "인기",
+                                            ]
+                                        ):
+                                            if (
+                                                place_name == title
+                                            ):  # 아직 추출되지 않은 경우만
                                                 place_name = part
                                                 break
-                
+
                 # 형식화된 문서 생성
                 formatted_doc = f"""
 문서 {i}: {place_name}
@@ -314,27 +354,26 @@ def response_generator(state: GraphState) -> GraphState:
 URL: {url}
 """
                 formatted_docs.append(formatted_doc)
-            
+
             return "\n\n".join(formatted_docs)
-        
+
         # 향상된 문서 포맷팅 적용
         if is_event:
             enhanced_context = format_with_detailed_metadata(retrieved_docs)
-            response = chain.invoke({
-                "context": enhanced_context,
-                "question": question
-            })
+            response = chain.invoke({"context": enhanced_context, "question": question})
         else:
             enhanced_context = format_with_detailed_metadata(retrieved_docs)
-            response = chain.invoke({
-                "context": enhanced_context,
-                "naver_results": naver_context,
-                "question": question
-            })
-        
+            response = chain.invoke(
+                {
+                    "context": enhanced_context,
+                    "naver_results": naver_context,
+                    "question": question,
+                }
+            )
+
         # 실제 응답 내용 추출
-        answer = response.content if hasattr(response, 'content') else str(response)
-        
+        answer = response.content if hasattr(response, "content") else str(response)
+
         # 빈 응답 확인 (완전히 비어있는 경우만 체크)
         if not answer or answer.strip() == "":
             fallback_response = (
@@ -342,20 +381,23 @@ URL: {url}
                 "다른 질문이나 다른 지역에 대해 물어봐주시겠어요?"
             )
             return {**state, "answer": fallback_response}
-        
+
         # 상태 업데이트 전에 응답이 문자열인지 확인
         if not isinstance(answer, str):
             answer = str(answer)
-        
+
         print(f"=== 응답 생성 완료: 길이 {len(answer)} ===")
         print(f"=== 응답 미리보기: {answer[:100]}... ===")
-        
+
         # 상태 업데이트
         return {**state, "answer": answer}
-        
+
     except Exception as e:
         error_message = f"응답 생성 중 오류 발생: {str(e)}"
-        return {**state, "answer": f"죄송합니다, 요청을 처리하는 중에 오류가 발생했습니다: {str(e)}"}
+        return {
+            **state,
+            "answer": f"죄송합니다, 요청을 처리하는 중에 오류가 발생했습니다: {str(e)}",
+        }
 
     finally:
-        print("=== 응답 생성 완료 ===\n") 
+        print("=== 응답 생성 완료 ===\n")
