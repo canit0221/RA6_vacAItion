@@ -1,4 +1,4 @@
-const BACKEND_BASE_URL = 'http://localhost:8000';
+const BACKEND_BASE_URL = 'https://vacaition.life';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 이미 로그인된 상태인지 확인
