@@ -86,11 +86,14 @@ def load_data(query_type: str) -> Tuple[List[Document], Any]:
 
         # 이벤트 벡터스토어 로드 또는 생성
         try:
-            event_vectorstore = FAISS.load_local(
-                str(event_vectorstore_path),
-                embeddings,
-                allow_dangerous_deserialization=True,
-            )
+            if event_vectorstore:
+                return event_docs, event_vectorstore
+            else:
+                event_vectorstore = FAISS.load_local(
+                    str(event_vectorstore_path),
+                    embeddings,
+                    allow_dangerous_deserialization=True,
+                )
         except Exception:
             ValueError("이벤트 문서가 없어 벡터스토어를 생성할 수 없습니다.")
 
@@ -126,9 +129,14 @@ def load_data(query_type: str) -> Tuple[List[Document], Any]:
 
         # 일반 벡터스토어 로드 또는 생성
         try:
-            vectorstore = FAISS.load_local(
-                str(vectorstore_path), embeddings, allow_dangerous_deserialization=True
-            )
+            if vectorstore:
+                return docs, vectorstore
+            else:
+                vectorstore = FAISS.load_local(
+                    str(vectorstore_path),
+                    embeddings,
+                    allow_dangerous_deserialization=True,
+                )
         except Exception:
             raise ValueError("일반 문서가 없어 벡터스토어를 생성할 수 없습니다.")
 
