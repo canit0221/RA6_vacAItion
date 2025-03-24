@@ -1,4 +1,4 @@
-from .base import GraphState, extract_categories_and_districts, extract_minor_keywords
+from .base import GraphState, extract_categories_and_districts
 
 def query_analyzer(state: GraphState) -> GraphState:
     """쿼리 분석 노드
@@ -22,12 +22,8 @@ def query_analyzer(state: GraphState) -> GraphState:
     # 카테고리 및 구 이름 추출
     category, district = extract_categories_and_districts(question)
     
-    # 마이너 키워드 추출
-    minor_keywords = extract_minor_keywords(question)
-    
     print(f"추출된 지역: {district}")
     print(f"추출된 카테고리: {category}")
-    print(f"추출된 소분류 키워드: {minor_keywords}")
     print(f"쿼리 유형: {'이벤트' if query_type == 'event' else '일반'}")
     print("=== 쿼리 분석 완료 ===\n")
     
@@ -37,7 +33,6 @@ def query_analyzer(state: GraphState) -> GraphState:
         "is_event": query_type == "event",
         "query_info": {
             "category": category,
-            "district": district,
-            "minor_keywords": minor_keywords
+            "district": district
         }
     } 
