@@ -31,9 +31,21 @@ class ChatbotConfig(AppConfig):
             logger.info("LangGraph 초기화가 이미 진행 중이므로 건너뜀")
             return
 
-        # 백그라운드에서 초기화 시작
-        logger.info("LangGraph 초기화 시작 (apps.py)")
-        from .graph_chatbot import initialize_graph_in_background
+        # 백그라운드에서 벡터스토어 초기화 시작
+        logger.info("벡터스토어 초기화 시작 (apps.py)")
+        from .graph_modules.data_loader import initialize_vectorstores
 
-        threading.Thread(target=initialize_graph_in_background, daemon=True).start()
-        logger.info("LangGraph 초기화 태스크 시작됨")
+        def initialize_all():
+            # 벡터스토어 초기화
+            logger.info("벡터스토어 초기화 중...")
+            initialize_vectorstores()
+
+            # LangGraph 초기화
+            logger.info("LangGraph 초기화 중...")
+            from .graph_chatbot import initialize_graph_in_background
+
+            initialize_graph_in_background()
+
+        # 백그라운드에서 초기화 시작
+        threading.Thread(target=initialize_all, daemon=True).start()
+        logger.info("벡터스토어 및 LangGraph 초기화 태스크 시작됨")
