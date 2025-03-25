@@ -48,10 +48,10 @@ document.addEventListener('DOMContentLoaded', () => {
 function checkAlreadyLoggedIn() {
     // URL 파라미터 확인
     const urlParams = new URLSearchParams(window.location.search);
-    const fromDeleteAccount = urlParams.get('fromDeleteAccount');
+    const fromDeleteAccounts = urlParams.get('fromDeleteAccounts');
     
     // 회원 탈퇴 후 이동한 경우 검사를 건너뜀
-    if (fromDeleteAccount === 'true') {
+    if (fromDeleteAccounts === 'true') {
         return;
     }
     

@@ -32,11 +32,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // 계정 삭제 링크 이벤트 리스너
-    const deleteAccountLink = document.getElementById('deleteAccountLink');
-    if (deleteAccountLink) {
-        deleteAccountLink.addEventListener('click', (e) => {
+    const deleteAccountsLink = document.getElementById('deleteAccountsLink');
+    if (deleteAccountsLink) {
+        deleteAccountsLink.addEventListener('click', (e) => {
             e.preventDefault();
-            window.location.href = '../pages/delete-account.html';
+            window.location.href = '../pages/delete-accounts.html';
         });
     }
 });
@@ -127,7 +127,7 @@ async function logout() {
             return;
         }
         
-        const response = await fetch(`${BACKEND_BASE_URL}/api/account/logout/`, {
+        const response = await fetch(`${BACKEND_BASE_URL}/api/accounts/logout/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

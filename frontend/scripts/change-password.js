@@ -40,7 +40,7 @@ async function handlePasswordChange(e) {
     }
     
     try {
-        const response = await fetch(`${BACKEND_BASE_URL}/api/account/change-password/`, {
+        const response = await fetch(`${BACKEND_BASE_URL}/api/accounts/change-password/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

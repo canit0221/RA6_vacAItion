@@ -148,14 +148,14 @@ header {
     font-weight: 500;
 }
 
-.account-delete {
+.accounts-delete {
     text-align: center;
     margin-top: 40px;
     font-size: 14px;
     color: #666;
 }
 
-.account-delete a {
+.accounts-delete a {
     color: #ff4500;
     text-decoration: none;
     font-weight: 500;
