@@ -8,35 +8,38 @@
 </head>
 <body>
     <div class="container">
-        <!-- 헤더 부분 제거 -->
-        
         <div class="signup-box">
             <h1 class="title">회원 가입</h1>
-            <p class="subtitle">모든 필수 항목을 입력해야 가입이 완료됩니다.</p>
-            <p class="subtitle">(Address는 선택 입력 항목)</p>
+            <p class="subtitle">* 표시된 항목은 필수 입력사항입니다.</p>
             
             <form id="signupForm">
                 <div class="input-group">
+                    <label>아이디 <span class="required">*</span></label>
                     <span class="input-icon">👤</span>
                     <input type="text" id="username" placeholder="ID" required>
                 </div>
                 <div class="input-group">
+                    <label>닉네임 <span class="required">*</span></label>
                     <span class="input-icon">👤</span>
                     <input type="text" id="nickname" placeholder="NickName" required>
                 </div>
                 <div class="input-group">
+                    <label>이메일 <span class="required">*</span></label>
                     <span class="input-icon">✉️</span>
                     <input type="email" id="email" placeholder="Email" required>
                 </div>
                 <div class="input-group">
+                    <label>주소</label>
                     <span class="input-icon">📍</span>
                     <input type="text" id="address" placeholder="Address">
                 </div>
                 <div class="input-group">
+                    <label>비밀번호 <span class="required">*</span></label>
                     <span class="input-icon">🔒</span>
                     <input type="password" id="password" placeholder="Password" required>
                 </div>
                 <div class="input-group">
+                    <label>비밀번호 확인 <span class="required">*</span></label>
                     <span class="input-icon">🔒</span>
                     <input type="password" id="confirmPassword" placeholder="Confirm Password" required>
                 </div>

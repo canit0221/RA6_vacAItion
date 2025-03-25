@@ -5,7 +5,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import ChatSession, ChatMessage
 import os
-from account.models import User
+from accounts.models import User
 import jwt
 from django.conf import settings
 from urllib.parse import parse_qs

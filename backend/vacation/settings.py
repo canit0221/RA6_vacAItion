@@ -52,7 +52,7 @@ INSTALLED_APPS = [
     "channels",
     "corsheaders",
     # local apps
-    "account",
+    "accounts",
     "chatbot.apps.ChatbotConfig",
     "calendar_app",
 ]
@@ -62,7 +62,7 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ),
-    "EXCEPTION_HANDLER": "account.utils.custom_exception_handler",
+    "EXCEPTION_HANDLER": "accounts.utils.custom_exception_handler",
 }
 
 SIMPLE_JWT = {
@@ -107,7 +107,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "vacation.wsgi.application"
 
-AUTH_USER_MODEL = "account.User"
+AUTH_USER_MODEL = "accounts.User"
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -249,3 +249,12 @@ LOGGING = {
         },
     },
 }
+
+# Email settings
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.environ.get("EMAIL_HOST")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT"))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS") == "True"
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL")

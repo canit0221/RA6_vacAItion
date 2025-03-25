@@ -197,7 +197,7 @@ async function logout() {
             return;
         }
         
-        const response = await fetch(`${BACKEND_BASE_URL}/api/account/logout/`, {
+        const response = await fetch(`${BACKEND_BASE_URL}/api/accounts/logout/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
