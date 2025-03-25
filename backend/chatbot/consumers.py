@@ -188,7 +188,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # LangGraph 실행 (비동기 호출)
             print("=== LangGraph 비동기 호출 시작 ===")
             try:
-                result = await graph.ainvoke({"question": message})
+                # 세션 ID를 str 대신 int로 전달합니다
+                session_id = session.id
+                print(f"=== 세션 ID: {session_id} (타입: {type(session_id)}) ===")
+                
+                # 전달하는 session_id는 문자열이 아닌 정수 타입으로 전달
+                result = await graph.ainvoke({
+                    "question": message, 
+                    "session_id": session_id
+                })
                 
                 if "answer" in result:
                     content = result["answer"]

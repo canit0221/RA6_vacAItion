@@ -10,6 +10,9 @@ from .base import GraphState
 from .data_loader import load_data
 from rank_bm25 import BM25Okapi
 from typing import List, Dict, Any, Tuple
+from django.apps import apps
+import asyncio
+from channels.db import database_sync_to_async
 
 # 환경 변수 로드
 load_dotenv()
@@ -35,6 +38,36 @@ def hybrid_retriever(state: GraphState) -> GraphState:
     is_event = state.get("is_event", False)
     query_info = state.get("query_info", {})
     
+    # 세션 ID 확인 - 기본값은 "default_session"
+    session_id = state.get("session_id", "default_session")
+    print(f"현재 세션 ID: {session_id}")
+    
+    # 세션 객체 가져오기
+    ChatSession = apps.get_model('chatbot', 'ChatSession')
+    ChatMessage = apps.get_model('chatbot', 'ChatMessage')
+    
+    try:
+        # 세션 ID가 제공된 경우 데이터베이스에서 세션 정보 가져오기
+        if session_id and session_id != "default_session":
+            session = ChatSession.objects.filter(id=session_id).first()
+            
+            if session:
+                # 데이터베이스에서 세션의 추천 장소 목록 가져오기
+                recommended_places = session.get_recommended_places()
+                print(f"데이터베이스에서 가져온 이전에 추천한 장소 수: {len(recommended_places)}")
+                print(f"이전에 추천한 장소 목록: {recommended_places}")
+            else:
+                print(f"세션 {session_id}를 찾을 수 없어 빈 추천 목록을 사용합니다.")
+                recommended_places = []
+        else:
+            # 세션 정보가 없는 경우 빈 목록 사용
+            print("세션 ID가 없어 빈 추천 목록을 사용합니다.")
+            recommended_places = []
+    except Exception as e:
+        print(f"세션 정보 로드 중 오류 발생: {e}")
+        # 오류 발생 시 빈 목록 사용
+        recommended_places = []
+    
     # 가중치 설정
     vector_weight = 0.4
     keyword_weight = 0.6
@@ -49,7 +82,7 @@ def hybrid_retriever(state: GraphState) -> GraphState:
     # 쿼리가 없는 경우 검색 건너뛰기
     if not question:
         print("쿼리가 비어있어 검색을 건너뜁니다.")
-        return {**state, "retrieved_docs": []}
+        return {**state, "retrieved_docs": [], "recommended_places": recommended_places}
 
     # 카테고리 정보 추출
     district = query_info.get("district")
@@ -85,33 +118,31 @@ def hybrid_retriever(state: GraphState) -> GraphState:
         """텍스트를 토큰화하는 함수"""
         return re.findall(r"[\w\d가-힣]+", text.lower())
 
-    # 마이너 장소 키워드 그룹 정의 - 확장된 버전
+    # 마이너 키워드 그룹 설정
     minor_keyword_groups = {
         "숨은": [
-            "숨은", "숨겨진", "알려지지 않은", "비밀", "히든", "hidden",
-            "secret", "잘 모르는", "남들이 모르는", "나만 아는",
-            "나만 알고 있는", "붐비지 않는", "한적한", "조용한", "언급 안 된",
-            "아는 사람만", "뜨지 않은", "인기 없는", "신상", "새로운",
-            "찾기 힘든", "모르는", "생소한", "덜 알려진"
+            "숨은", "숨겨진", "비밀", "알려지지", "알려지지 않은", "비밀스러운", "모르는",
+            "비밀의", "숨은 맛집", "숨은 카페", "숨겨진 맛집", "숨겨진 카페", "모르는 사람",
+            "아는 사람", "미공개", "비공개", "소수", "소수만", "현지인", "현지인들", "매니아",
+            "진짜", "진짜 맛집", "찐", "찐 맛집", "찐 카페", "소문", "소문난", "히든"
         ],
         "우연": [
-            "우연히", "우연한", "우연히 발견한", "우연히 알게 된",
-            "우연히 찾은", "우연히 방문한", "우연히 가게 된", "발견한",
-            "찾아낸", "마주친", "지나가다", "우연", "찾게 된", "발견", "들리게 된",
-            "알게 된", "마주하게 된", "발견하게 된", "우연의 일치"
+            "우연", "우연히", "우연의", "우연한", "우연찮게", "발견", "발견한", "지나가다",
+            "발견된", "알게 된", "알게된", "몰랐던", "모르는", "올라가다", "내려가다", "보이는",
+            "보인", "눈에 띄는", "눈에 띈", "눈에 들어온", "눈에 들어온", "눈에 들어와",
+            "발견할", "찾아낸", "어쩌다", "어쩌다가", "변두리", "골목", "골목길", "진입로"
         ],
         "로컬": [
-            "로컬", "현지인", "주민", "동네", "단골", "local", "근처", "주변",
-            "지역", "골목", "골목길", "동네 주민", "지역 맛집", "사람들이 모르는",
-            "주민들", "동네 사람들", "단골손님", "토박이", "지역 특색",
-            "로컬 맛집", "지역민", "사람", "주민 추천", "동네 가게",
-            "동네 사람들만", "동네에서 유명한", "지역 주민들이 찾는"
+            "로컬", "지역", "지역민", "동네", "거주", "거주민", "사는", "사는 사람", "주민",
+            "단골", "단골집", "단골손님", "앞집", "앞동네", "뒷동네", "골목", "골목길", "골목 안",
+            "골목 속", "이웃", "이웃들", "이웃집", "이웃 주민", "정기적", "항상", "자주",
+            "자주 가는", "우리 동네", "동네 주민", "동네 사람"
         ],
         "특별한": [
-            "특별한", "독특한", "색다른", "이색", "이색적인", "특이한", "유니크한",
-            "남다른", "기발한", "창의적인", "특색 있는", "새로운 시도", "참신한",
-            "기존에 없던", "새로운 개념", "특별함", "특별하게", "유일한", "오직",
-            "톡톡 튀는", "차별화된", "남들과 다른", "이색테마", "독특함"
+            "특별한", "특별하게", "특별함", "독특한", "독특하게", "색다른", "색다르게", "색달라",
+            "다른", "남다른", "남달라", "낯선", "새로운", "처음", "새롭게", "익숙치 않은",
+            "익숙하지 않은", "특이한", "특이하게", "이색", "이색적인", "기존과 다른", "평범하지 않은",
+            "평범치 않은", "차별화된", "차별화", "기억에 남는"
         ],
         "감성": [
             "감성", "감성적인", "분위기", "분위기 좋은", "예쁜", "아름다운", "인스타",
@@ -182,69 +213,151 @@ def hybrid_retriever(state: GraphState) -> GraphState:
 
     print(f"최종 검색 조건 - 지역: {district}, 카테고리: {category}")
 
-    # 2. 첫 번째 단계: 벡터 검색
+    # 2. 검색 순서 변경: 메타데이터 기반 필터링 먼저 수행
+    print("\n2. 메타데이터 기반 필터링 수행 중...")
+    
+    # 모든 문서를 대상으로 필터링 시작
+    filtered_docs = docs
+    
+    # 2.1. 지역 기반 필터링
+    print("   - 지역 기반 필터링 수행 중...")
+    if district:
+        district_name = district.replace("서울 ", "")
+        location_filtered_docs = []
+        for doc in filtered_docs:
+            content = doc.page_content.lower()
+            metadata_location = doc.metadata.get("location", "").lower()
+            metadata_address = doc.metadata.get("address", "").lower()
+            
+            # 지역명이 콘텐츠나 메타데이터에 포함되어 있는지 확인
+            if (district.lower() in content or 
+                district_name.lower() in content or 
+                district.lower() in metadata_location or
+                district_name.lower() in metadata_location or
+                district.lower() in metadata_address or
+                district_name.lower() in metadata_address):
+                location_filtered_docs.append(doc)
+        
+        # 필터링 결과가 적어도 해당 구 내의 결과만 유지 (확장하지 않음)
+        if len(location_filtered_docs) < 3:
+            print(f"   - 지역 필터링 결과가 적습니다 ({len(location_filtered_docs)}개). 해당 구 내의 결과만 유지합니다.")
+        
+        filtered_docs = location_filtered_docs
+        print(f"   - 지역 필터링 결과: {len(filtered_docs)}개 문서")
+    else:
+        print("   - 지역 필터가 없어 모든 문서 사용")
+    
+    # 2.2. 카테고리 기반 필터링
+    print("   - 카테고리 기반 필터링 수행 중...")
+    if not is_event and category:
+        category_keywords = categories.get(category, [])
+        category_filtered_docs = []
+        
+        for doc in filtered_docs:
+            content = doc.page_content.lower()
+            if any(keyword in content for keyword in category_keywords):
+                category_filtered_docs.append(doc)
+        
+        # 필터링 결과가 있으면 적용
+        if category_filtered_docs:
+            filtered_docs = category_filtered_docs
+            print(f"   - 카테고리 필터링 결과: {len(filtered_docs)}개 문서")
+        else:
+            print(f"   - 카테고리 '{category}' 필터링 결과가 없어 이전 결과 유지")
+    elif is_event:
+        print("   - 이벤트 검색이므로 카테고리 필터링 생략")
+    else:
+        print("   - 카테고리 필터가 없어 이전 결과 유지")
+    
+    # 3. 이미 추천한 장소 필터링 (메타데이터에서 장소 식별자 추출)
+    print("\n3. 이미 추천한 장소 제외 중...")
+    non_recommended_docs = []
+    excluded_count = 0
+    
+    for doc in filtered_docs:
+        # 장소 식별자 생성
+        place_id = doc.metadata.get("id", "")
+        place_name = doc.metadata.get("name", "")
+        place_identifier = ""
+        
+        if place_id and place_name:
+            place_identifier = f"{place_id}:{place_name}"
+        elif place_id:
+            place_identifier = place_id
+        elif place_name:
+            place_identifier = place_name
+        else:
+            # 콘텐츠 해시의 일부 사용
+            place_identifier = str(hash(doc.page_content))[:10]
+        
+        # 이미 추천한 장소인지 확인
+        if place_identifier not in recommended_places:
+            non_recommended_docs.append(doc)
+        else:
+            excluded_count += 1
+    
+    print(f"   - 이미 추천된 {excluded_count}개 장소 제외 후 {len(non_recommended_docs)}개 문서 남음")
+    
+    # 필터링된 문서 수가 너무 적으면 (3개 미만) 메시지 출력
+    if len(non_recommended_docs) < 3:
+        print("   - 경고: 추천할 새로운 장소가 거의 없습니다.")
+    
+    # 4. 벡터 검색 수행 (필터링된 문서만 대상으로)
     vector_start = time.time()
-    print("\n2. 벡터 검색 실행 중...")
-
-    # 벡터 검색 과정 수행
+    print("\n4. 벡터 검색 실행 중...")
+    
+    # 필터링된 문서가 없으면 원본 문서 사용
+    docs_to_search = non_recommended_docs if non_recommended_docs else docs
+    
+    # 벡터 검색 수행
     docs_and_scores = []
-    try:
-        docs_and_scores = vectorstore.similarity_search_with_score(
-            question, k=min(15, len(docs))
-        )
-        print(f"   - 벡터 검색 결과: {len(docs_and_scores)}개 문서")
-    except Exception as e:
-        print(f"   - 벡터 검색 오류: {str(e)}")
-        docs_and_scores = [(doc, 1.0) for doc in docs[:min(15, len(docs))]]
-
+    
+    # 벡터 검색할 문서가 충분히 있는지 확인
+    if len(docs_to_search) >= 3:
+        try:
+            # 검색 문서 수 증가 (15 -> 30)
+            search_k = min(30, len(docs_to_search))
+            
+            # 벡터스토어를 사용하여 필터링된 문서에서만 검색
+            embeddings = OpenAIEmbeddings()
+            text_field = "page_content"
+            
+            # 임시 벡터스토어 생성 (필터링된 문서로만)
+            temp_vectorstore = Chroma.from_documents(
+                documents=docs_to_search,
+                embedding=embeddings,
+                collection_name="temp_filtered_collection"
+            )
+            
+            # 임시 벡터스토어에서 검색
+            docs_and_scores = temp_vectorstore.similarity_search_with_score(
+                question, k=search_k
+            )
+            print(f"   - 벡터 검색 결과: {len(docs_and_scores)}개 문서")
+        except Exception as e:
+            print(f"   - 벡터 검색 오류: {str(e)}")
+            # 오류 발생 시 점수 1.0으로 모든 문서 사용
+            docs_and_scores = [(doc, 1.0) for doc in docs_to_search[:search_k]]
+    else:
+        print("   - 필터링된 문서가 너무 적어 벡터 검색 스킵")
+        # 문서가 너무 적으면 벡터 검색 없이 모든 문서 사용
+        docs_and_scores = [(doc, 1.0) for doc in docs_to_search]
+    
+    # 거리를 유사도로 변환
     docs_with_scores = []
     for doc, score in docs_and_scores:
         vector_score = 1.0 - score  # 거리를 유사도로 변환
         docs_with_scores.append((doc, vector_score))
-
-    # 3. 키워드 기반 필터링
-    keyword_start = time.time()
-    print("\n3. 키워드 기반 필터링 중...")
-
-    # 지역 기반 필터링
-    filtered_docs = []
-    if district:
-        district_name = district.replace("서울 ", "")
-        for doc, score in docs_with_scores:
-            content = doc.page_content.lower()
-            if (district.lower() in content or 
-                district_name.lower() in content or 
-                district.lower() in doc.metadata.get("location", "").lower() or
-                district_name.lower() in doc.metadata.get("location", "").lower()):
-                filtered_docs.append((doc, score))
-        print(f"   - 지역 필터링 결과: {len(filtered_docs)}개 문서")
-    else:
-        filtered_docs = docs_with_scores
-        print("   - 지역 필터가 없어 모든 문서 사용")
-
-    # 카테고리 기반 필터링 (이벤트가 아닐 경우)
-    if not is_event and category:
-        category_filtered = []
-        category_keywords = categories.get(category, [])
-        for doc, score in filtered_docs:
-            content = doc.page_content.lower()
-            if any(keyword in content for keyword in category_keywords):
-                category_filtered.append((doc, score))
-        if category_filtered:  # 필터링 결과가 있는 경우만 적용
-            filtered_docs = category_filtered
-            print(f"   - 카테고리 필터링 결과: {len(filtered_docs)}개 문서")
-        else:
-            print(f"   - 카테고리 '{category}' 필터링 결과가 없어 이전 결과 유지")
-
-    # 4. 마이너 키워드 점수 계산 및 적용
+        
+    # 5. 마이너 키워드 점수 계산 및 최종 결과 생성
+    print("\n5. 마이너 키워드 점수 계산 중...")
     final_results = []
-    print("\n4. 마이너 키워드 점수 계산 중...")
     
-    for doc, vector_score in filtered_docs:
+    for doc, vector_score in docs_with_scores:
         # 문서에서 마이너 키워드 점수 계산
         minor_score, found_types = check_minor_keywords_in_doc(doc.page_content)
         
-        # 최종 점수 계산 (벡터 점수 * 벡터 가중치 + 마이너 점수 * 키워드 가중치)
+        # 최종 점수 계산
         final_score = vector_score * vector_weight + minor_score * keyword_weight
         
         # 결과에 추가 정보 포함
@@ -259,15 +372,36 @@ def hybrid_retriever(state: GraphState) -> GraphState:
     # 점수 기준 정렬
     final_results.sort(key=lambda x: x["score"], reverse=True)
     
-    # 상위 결과 선택 (최대 5개)
-    top_k = min(5, len(final_results))
+    # 최종 결과 정리 및 장소 식별자 추출
+    print("\n6. 최종 결과 정리 중...")
+    new_recommended_places = []
+    
+    # 상위 결과 선택 (최대 10개로 증가)
+    top_k = min(10, len(final_results))
     selected_results = final_results[:top_k]
     
-    # 결과 출력
+    # 결과 출력 및 새로운 추천 장소 식별자 추출
     print(f"\n=== 상위 {top_k}개 결과 ===")
     for i, result in enumerate(selected_results, 1):
         doc = result["doc"]
         minor_types = result["minor_types"]
+        
+        # 장소 식별자 생성
+        place_id = doc.metadata.get("id", "")
+        place_name = doc.metadata.get("name", "")
+        place_identifier = ""
+        
+        if place_id and place_name:
+            place_identifier = f"{place_id}:{place_name}"
+        elif place_id:
+            place_identifier = place_id
+        elif place_name:
+            place_identifier = place_name
+        else:
+            place_identifier = str(hash(doc.page_content))[:10]
+        
+        # 새로운 추천 장소 목록에 추가
+        new_recommended_places.append(place_identifier)
         
         # 문서 내용 요약 (첫 50자)
         content_preview = doc.page_content[:50] + "..." if len(doc.page_content) > 50 else doc.page_content
@@ -290,8 +424,31 @@ def hybrid_retriever(state: GraphState) -> GraphState:
     # 최종 선택된 문서들만 추출
     retrieved_docs = [result["doc"] for result in selected_results]
     
+    # 세션에 새로 추가된 장소들을 저장
+    if session_id and session_id != "default_session" and new_recommended_places:
+        try:
+            session = ChatSession.objects.filter(id=session_id).first()
+            if session:
+                # 새로 추천된 장소 추가
+                for place in new_recommended_places:
+                    session.add_recommended_place(place)
+                print(f"세션 {session_id}에 {len(new_recommended_places)}개의 새로운 장소가 저장되었습니다.")
+            else:
+                print(f"세션 {session_id}을 찾을 수 없어 추천 장소를 저장하지 못했습니다.")
+        except Exception as e:
+            print(f"추천 장소 저장 중 오류 발생: {e}")
+    
     # 처리 시간 출력
     total_time = time.time() - start_time
     print(f"\n=== 검색 완료 (총 {total_time:.2f}초) ===")
-
-    return {**state, "retrieved_docs": retrieved_docs}
+    print(f"현재까지 추천한 장소 수: {len(recommended_places) + len(new_recommended_places)}")
+    
+    # 업데이트된 전체 추천 장소 목록 (기존 + 신규)
+    all_recommended_places = recommended_places + new_recommended_places
+    
+    # 업데이트된 graph state 반환 (추천한 장소 목록 포함)
+    return {
+        **state, 
+        "retrieved_docs": retrieved_docs, 
+        "recommended_places": all_recommended_places
+    }

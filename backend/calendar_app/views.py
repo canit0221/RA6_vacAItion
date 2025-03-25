@@ -96,3 +96,73 @@ class ScheduleDetailView(APIView):
                 {"success": True, "message": "일정이 삭제되었습니다."},
                 status=status.HTTP_200_OK,
             )    
+
+class AddRecommendedPlaceView(APIView):
+    """추천 장소를 일정에 추가하는 API"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        """
+        추천 장소를 일정에 추가
+        
+        요청 데이터:
+        - date: 일정 날짜 (YYYY-MM-DD)
+        - place_name: 장소 이름
+        - place_location: 장소 위치
+        - recommendation_reason: 추천 이유
+        - additional_info: 추가 정보
+        """
+        date = request.data.get('date')
+        place_name = request.data.get('place_name')
+        place_location = request.data.get('place_location', '')
+        recommendation_reason = request.data.get('recommendation_reason', '')
+        additional_info = request.data.get('additional_info', '')
+        
+        if not date or not place_name:
+            return Response(
+                {"success": False, "message": "날짜와 장소 이름은 필수 항목입니다."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        try:
+            # 해당 날짜에 일정이 있는지 확인
+            schedule = Schedule.objects.filter(user=request.user, date=date).first()
+            
+            # 일정 정보 구성
+            memo_content = f"[추천 장소]\n이름: {place_name}\n위치: {place_location}\n\n"
+            if recommendation_reason:
+                memo_content += f"추천 이유: {recommendation_reason}\n\n"
+            if additional_info:
+                memo_content += f"참고 정보: {additional_info}\n\n"
+                
+            if schedule:
+                # 기존 일정이 있으면 메모에 추가
+                if schedule.memo:
+                    schedule.memo += "\n\n" + memo_content
+                else:
+                    schedule.memo = memo_content
+                schedule.save()
+                return Response(
+                    {"success": True, "message": "기존 일정에 추천 장소가 추가되었습니다.", "schedule_id": schedule.id},
+                    status=status.HTTP_200_OK
+                )
+            else:
+                # 새 일정 생성
+                new_schedule = Schedule(
+                    user=request.user,
+                    date=date,
+                    location=place_name,  # 장소 이름을 위치로 사용
+                    companion="",  # 기본값
+                    memo=memo_content
+                )
+                new_schedule.save()
+                return Response(
+                    {"success": True, "message": "새 일정에 추천 장소가 추가되었습니다.", "schedule_id": new_schedule.id},
+                    status=status.HTTP_201_CREATED
+                )
+                
+        except Exception as e:
+            return Response(
+                {"success": False, "message": f"일정 추가 중 오류가 발생했습니다: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )    

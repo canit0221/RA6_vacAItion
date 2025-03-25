@@ -529,6 +529,14 @@ function displayMessage(content, isBot, isStreaming = false) {
                 // 마크다운 없이 표시할 때도 줄바꿈 보존
                 contentDiv.innerHTML = content.replace(/\n/g, '<br>');
             }
+            
+            // 스트리밍 중이 아닐 때만 추천 장소에 + 버튼 추가
+            if (!isStreaming) {
+                // 렌더링된 내용에서 추천 장소 찾기
+                const processedContentDiv = contentDiv.cloneNode(true);
+                enhancePlaceRecommendations(processedContentDiv);
+                contentDiv.innerHTML = processedContentDiv.innerHTML;
+            }
         } catch (error) {
             console.error('마크다운 처리 중 오류:', error);
             // 오류 발생 시에도 줄바꿈 보존
@@ -544,6 +552,189 @@ function displayMessage(content, isBot, isStreaming = false) {
     
     // 스크롤을 최신 메시지로 이동
     chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// 추천 장소에 + 버튼 추가하는 함수
+function enhancePlaceRecommendations(contentDiv) {
+    // 1. 일반 검색 결과 처리 (일반적으로 6개의 장소 추천)
+    const h3Elements = contentDiv.querySelectorAll('h3');
+    h3Elements.forEach(h3 => {
+        // 숫자로 시작하는 제목 (예: "1. 카페 이름")을 찾습니다
+        if (/^\d+\./.test(h3.textContent.trim())) {
+            const placeName = h3.textContent.replace(/^\d+\.\s*/, '').trim();
+            addAddButton(h3, placeName);
+            
+            // 위치 및 설명 정보 추출
+            let placeLocation = '';
+            let placeDescription = '';
+            let currentElement = h3.nextElementSibling;
+            
+            while (currentElement && currentElement.tagName !== 'H3') {
+                const text = currentElement.textContent.trim();
+                if (text.includes('위치:') || text.includes('주소:')) {
+                    placeLocation = text.split(':')[1].trim();
+                } else if (!placeDescription && text) {
+                    placeDescription = text;
+                }
+                currentElement = currentElement.nextElementSibling;
+            }
+            
+            // 데이터 속성 추가
+            h3.dataset.placeLocation = placeLocation;
+            h3.dataset.placeDescription = placeDescription;
+        }
+    });
+    
+    // 2. 이벤트 검색 결과 처리 (일반적으로 3개의 이벤트 추천)
+    const strongElements = contentDiv.querySelectorAll('strong');
+    strongElements.forEach(strong => {
+        if (/^\d+\./.test(strong.textContent.trim())) {
+            const eventName = strong.textContent.replace(/^\d+\.\s*/, '').trim();
+            addAddButton(strong, eventName);
+            
+            // 위치 및 설명 정보 추출
+            let eventLocation = '';
+            let eventDescription = '';
+            let currentElement = strong.parentElement.nextElementSibling;
+            
+            while (currentElement && !currentElement.querySelector('strong')) {
+                const text = currentElement.textContent.trim();
+                if (text.includes('장소:') || text.includes('위치:')) {
+                    eventLocation = text.split(':')[1].trim();
+                } else if (!eventDescription && text) {
+                    eventDescription = text;
+                }
+                currentElement = currentElement.nextElementSibling;
+            }
+            
+            // 데이터 속성 추가
+            strong.dataset.placeLocation = eventLocation;
+            strong.dataset.placeDescription = eventDescription;
+        }
+    });
+}
+
+// 제목 요소에 + 버튼 추가
+function addAddButton(titleElement, placeName) {
+    // 원래 내용 저장
+    const originalContent = titleElement.innerHTML;
+    
+    // 버튼 생성
+    const addButton = document.createElement('button');
+    addButton.innerHTML = '+';
+    addButton.className = 'add-to-schedule-btn';
+    addButton.title = '일정에 추가';
+    addButton.setAttribute('aria-label', '일정에 추가');
+    
+    // 버튼 클릭 이벤트
+    addButton.addEventListener('click', (e) => {
+        e.stopPropagation(); // 이벤트 버블링 방지
+        
+        // 날짜 선택 모달 표시
+        showDatePickerModal(placeName, titleElement.dataset.placeLocation || '', titleElement.dataset.placeDescription || '');
+    });
+    
+    // 제목 요소에 버튼 추가
+    titleElement.innerHTML = originalContent;
+    titleElement.appendChild(document.createTextNode(' '));
+    titleElement.appendChild(addButton);
+}
+
+// 날짜 선택 모달 표시 함수
+function showDatePickerModal(placeName, placeLocation, placeDescription) {
+    // 기존 모달 제거
+    const existingModal = document.getElementById('datepicker-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // 모달 요소 생성
+    const modal = document.createElement('div');
+    modal.id = 'datepicker-modal';
+    modal.className = 'modal';
+    
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+    
+    const closeBtn = document.createElement('span');
+    closeBtn.className = 'close-button';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.onclick = () => modal.style.display = 'none';
+    
+    const title = document.createElement('h3');
+    title.textContent = '일정에 추가할 날짜를 선택하세요';
+    
+    const datePicker = document.createElement('input');
+    datePicker.type = 'date';
+    datePicker.id = 'schedule-date';
+    
+    // 오늘 날짜를 기본값으로 설정
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    datePicker.value = `${year}-${month}-${day}`;
+    
+    const addButton = document.createElement('button');
+    addButton.textContent = '추가';
+    addButton.className = 'btn btn-primary';
+    addButton.onclick = () => {
+        const selectedDate = document.getElementById('schedule-date').value;
+        if (selectedDate) {
+            addPlaceToSchedule(selectedDate, placeName, placeLocation, placeDescription);
+            modal.style.display = 'none';
+        } else {
+            alert('날짜를 선택해주세요.');
+        }
+    };
+    
+    // 모달 조립
+    modalContent.appendChild(closeBtn);
+    modalContent.appendChild(title);
+    modalContent.appendChild(datePicker);
+    modalContent.appendChild(addButton);
+    modal.appendChild(modalContent);
+    
+    // 모달을 body에 추가하고 표시
+    document.body.appendChild(modal);
+    modal.style.display = 'block';
+}
+
+// 선택한 날짜의 일정에 장소 추가 함수
+async function addPlaceToSchedule(date, placeName, placeLocation, placeDescription) {
+    try {
+        const accessToken = localStorage.getItem('access_token');
+        if (!accessToken) {
+            alert('로그인이 필요한 기능입니다.');
+            return;
+        }
+        
+        const response = await fetch(`${BACKEND_BASE_URL}/calendar/add-recommended-place/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({
+                date: date,
+                place_name: placeName,
+                place_location: placeLocation,
+                recommendation_reason: placeDescription,
+                additional_info: '챗봇 추천 장소'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert(`${date} 일정에 "${placeName}" 장소가 추가되었습니다.`);
+        } else {
+            alert(`장소 추가 실패: ${data.message || '알 수 없는 오류가 발생했습니다.'}`);
+        }
+    } catch (error) {
+        console.error('일정 추가 오류:', error);
+        alert('일정 추가 중 오류가 발생했습니다.');
+    }
 }
 
 // 메시지 전송 함수 수정
