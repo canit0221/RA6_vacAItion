@@ -1,4 +1,4 @@
-const BACKEND_BASE_URL = 'http://localhost:8000';
+const BACKEND_BASE_URL = 'https://vacaition.life';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 비밀번호 토글 버튼 기능 추가

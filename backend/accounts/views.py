@@ -26,7 +26,7 @@ import requests
 from json.decoder import JSONDecodeError
 
 # Google 로그인 기본 설정
-BASE_URL = "http://localhost:8000/"  # 실제 배포 시 도메인으로 변경 필요
+BASE_URL = "https://vacaition.life/"  # 실제 배포 시 도메인으로 변경 필요
 GOOGLE_CALLBACK_URI = BASE_URL + "accounts/google/callback/"
 
 
@@ -616,7 +616,7 @@ class RequestPasswordResetView(APIView):
             uid = urlsafe_base64_encode(force_bytes(user.pk))
 
             # 비밀번호 재설정 링크 생성
-            reset_url = f"http://localhost:8000/pages/reset-password.html?uid={uid}&token={token}"
+            reset_url = f"https://ra6vacaition.vercel.app/pages/reset-password.html?uid={uid}&token={token}"
 
             # 이메일 내용 생성
             email_subject = "[vacAItion] 비밀번호 재설정 안내"

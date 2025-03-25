@@ -1,4 +1,4 @@
-const BACKEND_BASE_URL = 'http://localhost:8000';
+const BACKEND_BASE_URL = 'https://vacaition.life';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 이미 로그인된 상태인지 확인
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     googleLoginBtn.addEventListener('click', () => {
         // 프론트엔드의 콜백 페이지를 통한 로그인 처리
         // 정확한 URL 생성 (localhost:5500으로 직접 지정)
-        const callbackUrl = 'http://localhost:5500/frontend/pages/google-callback.html';
+        const callbackUrl = 'https://ra6vacaition.vercel.app/pages/google-callback.html';
         const googleAuthURL = `${BACKEND_BASE_URL}/accounts/google/login/?redirect_uri=${encodeURIComponent(callbackUrl)}`;
         console.log('Google Auth URL:', googleAuthURL);
         window.location.href = googleAuthURL;
