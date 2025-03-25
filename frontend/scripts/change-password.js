@@ -40,7 +40,7 @@ async function handlePasswordChange(e) {
     }
     
     try {
-        const response = await fetch(`${BACKEND_BASE_URL}/api/accounts/change-password/`, {
+        const response = await fetch(`${BACKEND_BASE_URL}/change-password/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -64,9 +64,10 @@ async function handlePasswordChange(e) {
             alert('비밀번호가 성공적으로 변경되었습니다.');
             window.location.href = '../pages/profile.html';
         } else {
-            alert(data.message || '비밀번호 변경에 실패했습니다.');
+            alert(data.detail || data.message || '비밀번호 변경에 실패했습니다.');
         }
     } catch (error) {
+        console.error('Response:', response);
         console.error('비밀번호 변경 에러:', error);
         alert('비밀번호 변경 중 오류가 발생했습니다.');
     }
