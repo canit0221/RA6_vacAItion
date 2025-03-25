@@ -1,10 +1,21 @@
-const BACKEND_BASE_URL = 'https://vacaition.life';
+const BACKEND_BASE_URL = 'http://localhost:8000';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 이미 로그인된 상태인지 확인
     checkAlreadyLoggedIn();
     
     const loginForm = document.getElementById('loginForm');
+    const googleLoginBtn = document.getElementById('googleLoginBtn');
+    
+    // 구글 로그인 버튼 이벤트 리스너 추가
+    googleLoginBtn.addEventListener('click', () => {
+        // 프론트엔드의 콜백 페이지를 통한 로그인 처리
+        // 정확한 URL 생성 (localhost:5500으로 직접 지정)
+        const callbackUrl = 'http://localhost:5500/frontend/pages/google-callback.html';
+        const googleAuthURL = `${BACKEND_BASE_URL}/accounts/google/login/?redirect_uri=${encodeURIComponent(callbackUrl)}`;
+        console.log('Google Auth URL:', googleAuthURL);
+        window.location.href = googleAuthURL;
+    });
     
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -62,3 +73,24 @@ function checkAlreadyLoggedIn() {
         window.location.href = '../index.html';
     }
 }
+
+// 구글 로그인 콜백 처리를 위한 함수
+// URL에 토큰 정보가 있는지 확인하고 있으면 저장
+function handleGoogleLoginCallback() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const accessToken = urlParams.get('access');
+    const refreshToken = urlParams.get('refresh');
+    const username = urlParams.get('username');
+    
+    if (accessToken && refreshToken && username) {
+        localStorage.setItem('access_token', accessToken);
+        localStorage.setItem('refresh_token', refreshToken);
+        localStorage.setItem('username', username);
+        
+        // 토큰 정보를 저장한 후 메인 페이지로 리디렉션
+        window.location.href = '../index.html';
+    }
+}
+
+// 페이지 로드 시 콜백 처리 함수 실행
+handleGoogleLoginCallback();

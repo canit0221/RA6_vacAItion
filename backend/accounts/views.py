@@ -34,145 +34,125 @@ def google_login(request):
     """
     Google 로그인 요청
     """
+    # 프론트엔드에서 전달한 리다이렉트 URI 가져오기 (없으면 기본값 사용)
+    redirect_uri = request.GET.get("redirect_uri")
+
     # 구글에서 사용자 정보 중 이메일 스코프 요청
     scope = "https://www.googleapis.com/auth/userinfo.email"
 
-    # settings.py에서 SOCIAL_AUTH_GOOGLE_CLIENT_ID 가져오기
-    client_id = getattr(settings, "SOCIAL_AUTH_GOOGLE_CLIENT_ID")
+    # settings.py에서 GOOGLE_CLIENT_ID 가져오기
+    client_id = getattr(settings, "GOOGLE_CLIENT_ID")
+
+    # GOOGLE_CALLBACK_URI를 우선 사용하되, redirect_uri가 있으면 state 파라미터에 인코딩
+    state = ""
+    if redirect_uri:
+        import base64
+
+        # 안전하게 인코딩하여 state 파라미터로 전달
+        state = f"&state={base64.urlsafe_b64encode(redirect_uri.encode()).decode()}"
 
     # 구글 로그인 페이지로 리다이렉트
-    return redirect(
-        f"https://accounts.google.com/o/oauth2/v2/auth?client_id={client_id}&response_type=code&redirect_uri={GOOGLE_CALLBACK_URI}&scope={scope}"
-    )
+    google_auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?client_id={client_id}&response_type=code&redirect_uri={GOOGLE_CALLBACK_URI}&scope={scope}{state}"
+    return redirect(google_auth_url)
 
 
 def google_callback(request):
     """
     Google 로그인 콜백 처리
     """
+    # state 파라미터 확인 (프론트엔드 리다이렉트 URI가 있는 경우)
+    state = request.GET.get("state")
+    custom_redirect_uri = None
+
+    if state:
+        import base64
+
+        try:
+            # 안전하게 디코딩
+            custom_redirect_uri = base64.urlsafe_b64decode(state.encode()).decode()
+        except:
+            # 디코딩 실패 시 무시
+            pass
+
     # 클라이언트 정보 가져오기
-    client_id = getattr(settings, "SOCIAL_AUTH_GOOGLE_CLIENT_ID")
-    client_secret = getattr(settings, "SOCIAL_AUTH_GOOGLE_SECRET")
+    client_id = getattr(settings, "GOOGLE_CLIENT_ID")
+    client_secret = getattr(settings, "GOOGLE_CLIENT_SECRET")
 
     # 구글에서 받은 코드
     code = request.GET.get("code")
 
-    # 액세스 토큰 요청
-    token_req = requests.post(
-        f"https://oauth2.googleapis.com/token?client_id={client_id}&client_secret={client_secret}&code={code}&grant_type=authorization_code&redirect_uri={GOOGLE_CALLBACK_URI}"
-    )
-    token_req_json = token_req.json()
-    error = token_req_json.get("error")
-
-    # 에러 발생 시 처리
-    if error is not None:
-        raise JSONDecodeError(error)
-
-    # 액세스 토큰 추출
-    access_token = token_req_json.get("access_token")
-
-    # 이메일 정보 요청
-    email_req = requests.get(
-        f"https://www.googleapis.com/oauth2/v1/tokeninfo?access_token={access_token}"
-    )
-    email_req_status = email_req.status_code
-
-    # 이메일 요청 실패 시
-    if email_req_status != 200:
-        return JsonResponse(
-            {"err_msg": "이메일 정보를 가져오는데 실패했습니다"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    # 이메일 정보 추출
-    email_req_json = email_req.json()
-    email = email_req_json.get("email")
-
-    # 회원가입 또는 로그인 처리
+    # 이 부분에서 HTTP 요청 대신 직접 처리
     try:
-        # 기존 사용자 확인
-        User = get_user_model()
-        user = User.objects.get(email=email)
+        # 구글 로그인 플로우 직접 처리
+        from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+        from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+        from dj_rest_auth.registration.views import SocialLoginView
 
-        # 소셜 계정 확인
-        try:
-            social_user = SocialAccount.objects.get(user=user)
+        # 구글에서 얻은 코드로 액세스 토큰 요청
+        token_req = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": GOOGLE_CALLBACK_URI,
+            },
+        )
+        token_req_json = token_req.json()
+        access_token = token_req_json.get("access_token")
 
-            # 다른 소셜 계정으로 가입된 경우
-            if social_user.provider != "google":
-                return JsonResponse(
-                    {"err_msg": "다른 소셜 계정으로 가입된 이메일입니다"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Google로 가입된 기존 사용자 로그인 처리
-            data = {"access_token": access_token, "code": code}
-            accept = requests.post(
-                f"{BASE_URL}accounts/google/login/finish/", data=data
-            )
-            accept_status = accept.status_code
-
-            # 로그인 실패 시
-            if accept_status != 200:
-                return JsonResponse(
-                    {"err_msg": "로그인에 실패했습니다"}, status=accept_status
-                )
-
-            # 로그인 성공 시 JWT 반환
-            accept_json = accept.json()
-            accept_json.pop("user", None)
-            return JsonResponse(accept_json)
-
-        except SocialAccount.DoesNotExist:
-            # 일반 계정으로 가입된 이메일인 경우
+        if not access_token:
             return JsonResponse(
-                {"err_msg": "해당 이메일로 가입된 일반 계정이 있습니다"},
+                {"success": False, "message": "액세스 토큰을 얻을 수 없습니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-    except User.DoesNotExist:
-        # 신규 사용자 회원가입 및 로그인 처리
-        data = {"access_token": access_token, "code": code}
-        accept = requests.post(f"{BASE_URL}accounts/google/login/finish/", data=data)
-        accept_status = accept.status_code
+        # 액세스 토큰으로 이메일 정보 요청
+        profile_req = requests.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        profile_json = profile_req.json()
+        email = profile_json.get("email")
 
-        # 회원가입 실패 시
-        if accept_status != 200:
+        if not email:
             return JsonResponse(
-                {"err_msg": "회원가입에 실패했습니다"}, status=accept_status
+                {"success": False, "message": "이메일 정보를 가져올 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 회원가입 성공 시 JWT 반환
-        accept_json = accept.json()
-        accept_json.pop("user", None)
-        return JsonResponse(accept_json)
-
-
-class GoogleLogin(APIView):
-    """
-    Google 로그인 완료 처리 뷰
-    """
-
-    def post(self, request):
-        # 클라이언트에서 받은 액세스 토큰과 코드
-        access_token = request.data.get("access_token")
-        code = request.data.get("code")
-
-        # 소셜 계정 처리를 위한 어댑터 설정
-        adapter = google_view.GoogleOAuth2Adapter()
-        client = OAuth2Client(GOOGLE_CALLBACK_URI)
-
-        # 소셜 로그인 토큰 생성
-        token = adapter.get_access_token_for_code(request, code, client)
-
-        # 사용자 정보 요청
-        profile = adapter.get_profile(token)
-        email = profile.get("email")
+        print(f"구글 프로필: {profile_json}")  # 디버깅용
 
         # 기존 사용자 확인 또는 신규 사용자 생성
         User = get_user_model()
         try:
             user = User.objects.get(email=email)
+
+            # 소셜 계정 확인
+            try:
+                social_user = SocialAccount.objects.get(user=user)
+
+                # 다른 소셜 계정으로 가입된 경우
+                if social_user.provider != "google":
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "message": "다른 소셜 계정으로 가입된 이메일입니다",
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            except SocialAccount.DoesNotExist:
+                # 일반 계정으로 가입된 이메일인 경우
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": "해당 이메일로 가입된 일반 계정이 있습니다",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         except User.DoesNotExist:
             # 랜덤 사용자 이름 생성 (이메일 주소에서 @ 앞부분 + 랜덤 숫자)
             import uuid
@@ -182,7 +162,11 @@ class GoogleLogin(APIView):
 
             # 새 사용자 생성
             user = User.objects.create(
-                username=username, email=email, nickname=nickname
+                username=username,
+                email=email,
+                nickname=nickname,
+                first_name=profile_json.get("given_name", ""),  # 이름 추가
+                last_name=profile_json.get("family_name", ""),  # 성 추가
             )
             user.set_unusable_password()  # 비밀번호 없이 소셜 로그인만 가능하도록 설정
             user.save()
@@ -191,23 +175,162 @@ class GoogleLogin(APIView):
             SocialAccount.objects.create(
                 user=user,
                 provider="google",
-                uid=profile.get("sub"),  # Google 사용자 ID
-                extra_data=profile,
+                uid=profile_json.get("id"),  # Google 사용자 ID
+                extra_data=profile_json,
             )
 
         # JWT 토큰 생성
         refresh = RefreshToken.for_user(user)
 
-        # 응답 데이터 구성
-        response_data = {
-            "success": True,
-            "message": "구글 로그인 성공",
-            "username": user.username,
-            "refresh": str(refresh),
-            "access": str(refresh.access_token),
-        }
+        # 커스텀 리다이렉트 URI가 있는 경우 해당 URI로 리다이렉션
+        if custom_redirect_uri:
+            redirect_url = f"{custom_redirect_uri}?access={str(refresh.access_token)}&refresh={str(refresh)}&username={user.username}"
+            return redirect(redirect_url)
 
-        return Response(response_data, status=status.HTTP_200_OK)
+        # 그렇지 않으면 JSON 응답 반환
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "구글 로그인 성공",
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "username": user.username,
+            }
+        )
+
+    except Exception as e:
+        print(f"구글 로그인 처리 오류: {str(e)}")
+        return JsonResponse(
+            {"success": False, "message": f"구글 로그인 처리 중 오류: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+class GoogleLogin(APIView):
+    """
+    Google 로그인 완료 처리 뷰
+    """
+
+    def post(self, request):
+        try:
+            # 클라이언트에서 받은 액세스 토큰과 코드
+            access_token = request.data.get("access_token")
+            code = request.data.get("code")
+
+            if not access_token or not code:
+                return Response(
+                    {"success": False, "message": "액세스 토큰과 코드가 필요합니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 액세스 토큰으로 이메일 정보 요청
+            profile_req = requests.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            profile_json = profile_req.json()
+            email = profile_json.get("email")
+
+            if not email:
+                return Response(
+                    {"success": False, "message": "이메일 정보를 가져올 수 없습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            print(f"구글 프로필: {profile_json}")  # 디버깅용
+
+            # 기존 사용자 확인 또는 신규 사용자 생성
+            User = get_user_model()
+            try:
+                user = User.objects.get(email=email)
+                print(f"기존 사용자 발견: {user.username}")
+
+                # 소셜 계정 확인
+                try:
+                    social_user = SocialAccount.objects.get(user=user)
+
+                    # 다른 소셜 계정으로 가입된 경우
+                    if social_user.provider != "google":
+                        return Response(
+                            {
+                                "success": False,
+                                "message": "다른 소셜 계정으로 가입된 이메일입니다",
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                except SocialAccount.DoesNotExist:
+                    # 일반 계정으로 가입된 이메일인 경우
+                    return Response(
+                        {
+                            "success": False,
+                            "message": "해당 이메일로 가입된 일반 계정이 있습니다",
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            except User.DoesNotExist:
+                # 랜덤 사용자 이름 생성 (이메일 주소에서 @ 앞부분 + 랜덤 숫자)
+                import uuid
+
+                username = email.split("@")[0] + str(uuid.uuid4())[:8]
+                nickname = username  # 기본 닉네임으로 사용자 이름 사용
+                print(f"새 사용자 생성 시도: username={username}, nickname={nickname}")
+
+                # 새 사용자 생성
+                try:
+                    user = User.objects.create(
+                        username=username,
+                        email=email,
+                        nickname=nickname,
+                        first_name=profile_json.get("given_name", ""),  # 이름 추가
+                        last_name=profile_json.get("family_name", ""),  # 성 추가
+                    )
+                    user.set_unusable_password()  # 비밀번호 없이 소셜 로그인만 가능하도록 설정
+                    user.save()
+                    print(f"새 사용자 생성 성공: {user.username}")
+
+                    # 소셜 계정 연결
+                    SocialAccount.objects.create(
+                        user=user,
+                        provider="google",
+                        uid=profile_json.get("id"),  # Google 사용자 ID
+                        extra_data=profile_json,
+                    )
+                except Exception as e:
+                    print(f"사용자 생성 오류: {str(e)}")
+                    return Response(
+                        {"success": False, "message": f"사용자 생성 중 오류: {str(e)}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            # JWT 토큰 생성
+            try:
+                refresh = RefreshToken.for_user(user)
+            except Exception as e:
+                print(f"JWT 토큰 생성 오류: {str(e)}")
+                return Response(
+                    {"success": False, "message": f"JWT 토큰 생성 중 오류: {str(e)}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 응답 데이터 구성
+            response_data = {
+                "success": True,
+                "message": "구글 로그인 성공",
+                "username": user.username,
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(f"전체 처리 오류: {str(e)}")
+            return Response(
+                {"success": False, "message": f"처리 중 오류가 발생했습니다: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 # 회원가입
@@ -493,7 +616,7 @@ class RequestPasswordResetView(APIView):
             uid = urlsafe_base64_encode(force_bytes(user.pk))
 
             # 비밀번호 재설정 링크 생성
-            reset_url = f"https://vacaition.life/pages/reset-password.html?uid={uid}&token={token}"
+            reset_url = f"http://localhost:8000/pages/reset-password.html?uid={uid}&token={token}"
 
             # 이메일 내용 생성
             email_subject = "[vacAItion] 비밀번호 재설정 안내"

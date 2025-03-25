@@ -1,4 +1,4 @@
-const BACKEND_BASE_URL = 'https://vacaition.life';
+const BACKEND_BASE_URL = 'http://localhost:8000';
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('signup.js loaded');

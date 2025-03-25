@@ -1,4 +1,4 @@
-const BACKEND_BASE_URL = 'https://vacaition.life';
+const BACKEND_BASE_URL = 'http://localhost:8000';
 
 // 디버깅용 로그
 console.log('캘린더 페이지 로드됨');

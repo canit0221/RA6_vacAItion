@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vacAItion - Google 로그인 처리중</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        .loading-container {
+            text-align: center;
+        }
+        
+        .loading-spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #87CEEB;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        h2 {
+            color: #333;
+            font-weight: 600;
+        }
+        
+        p {
+            color: #666;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <h2>Google 로그인 처리중...</h2>
+        <p>잠시만 기다려주세요.</p>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("구글 콜백 페이지 로드됨");
+            console.log("현재 URL:", window.location.href);
+            console.log("쿼리 파라미터:", window.location.search);
+            
+            // 방법 1: URL에서 직접 토큰 정보 추출
+            const urlParams = new URLSearchParams(window.location.search);
+            const access = urlParams.get('access');
+            const refresh = urlParams.get('refresh');
+            const username = urlParams.get('username');
+            
+            // 토큰 정보가 있으면 저장하고 메인 페이지로 이동
+            if (access && refresh && username) {
+                console.log("토큰 정보 발견, 로컬 스토리지에 저장");
+                localStorage.setItem('access_token', access);
+                localStorage.setItem('refresh_token', refresh);
+                localStorage.setItem('username', username);
+                
+                // 메인 페이지로 이동
+                window.location.href = '../index.html';
+                return;
+            }
+            
+            // 방법 2: code 파라미터로 백엔드에 토큰 요청
+            const code = urlParams.get('code');
+            if (code) {
+                console.log("코드 파라미터 발견:", code);
+                processGoogleLogin(code);
+            } else {
+                console.error("코드 또는 토큰 정보가 없음");
+                alert('로그인 정보를 받지 못했습니다.');
+                window.location.href = './login.html';
+            }
+        });
+        
+        async function processGoogleLogin(code) {
+            try {
+                console.log("백엔드에 토큰 요청 시작");
+                // 백엔드에 토큰 요청 - Google 로그인 콜백 처리
+                const response = await fetch(`http://localhost:8000/accounts/google/callback/?code=${code}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log("백엔드 응답 상태:", response.status);
+                
+                // 응답 본문 로깅
+                const responseText = await response.text();
+                console.log("백엔드 응답 본문:", responseText);
+                
+                // JSON으로 다시 파싱
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    console.error("JSON 파싱 오류:", e);
+                    alert('서버 응답을 처리할 수 없습니다.');
+                    window.location.href = './login.html';
+                    return;
+                }
+                
+                if (response.ok && data.success) {
+                    console.log("로그인 성공, 토큰 저장");
+                    // JWT 토큰을 로컬 스토리지에 저장
+                    localStorage.setItem('access_token', data.access);
+                    localStorage.setItem('refresh_token', data.refresh);
+                    localStorage.setItem('username', data.username);
+                    
+                    // 메인 페이지로 이동
+                    window.location.href = '../index.html';
+                } else {
+                    console.error("로그인 실패:", data.message);
+                    alert(data.message || '구글 로그인에 실패했습니다.');
+                    window.location.href = './login.html';
+                }
+            } catch (error) {
+                console.error('통신 오류:', error);
+                alert('서버와의 통신 중 오류가 발생했습니다.');
+                window.location.href = './login.html';
+            }
+        }
+    </script>
+</body>
+</html> 
