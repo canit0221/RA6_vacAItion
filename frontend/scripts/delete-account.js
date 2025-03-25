@@ -11,9 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // 회원 탈퇴 버튼 이벤트 리스너
-    const deleteAccountBtn = document.getElementById('deleteAccountBtn');
-    if (deleteAccountBtn) {
-        deleteAccountBtn.addEventListener('click', deleteAccount);
+    const deleteAccountsBtn = document.getElementById('deleteAccountsBtn');
+    if (deleteAccountsBtn) {
+        deleteAccountsBtn.addEventListener('click', deleteAccounts);
     }
     
     // 달력으로 돌아가기 버튼 이벤트 리스너
@@ -38,7 +38,7 @@ function checkLoginStatus() {
 }
 
 // 회원 탈퇴 함수
-async function deleteAccount() {
+async function deleteAccounts() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     const currentUsername = localStorage.getItem('username');
@@ -111,7 +111,7 @@ async function deleteAccount() {
                 
                 alert('회원 탈퇴가 완료되었습니다.');
                 // 로그인 페이지로 이동 시 특별한 파라미터 추가
-                window.location.href = '../pages/login.html?fromDeleteAccount=true';
+                window.location.href = '../pages/login.html?fromDeleteAccounts=true';
                 return;
             }
             
@@ -136,7 +136,7 @@ async function deleteAccount() {
             
             alert('회원 탈퇴가 완료되었습니다.');
             // 로그인 페이지로 이동 시 특별한 파라미터 추가
-            window.location.href = '../pages/login.html?fromDeleteAccount=true';
+            window.location.href = '../pages/login.html?fromDeleteAccounts=true';
         }
     } catch (error) {
         console.error('회원 탈퇴 에러:', error);

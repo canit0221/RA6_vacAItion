@@ -27,16 +27,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (changePasswordLink) {
         changePasswordLink.addEventListener('click', (e) => {
             e.preventDefault();
-            alert('비밀번호 변경 기능은 아직 개발 중입니다.');
+            window.location.href = '../pages/change-password.html';
         });
     }
     
     // 계정 삭제 링크 이벤트 리스너
-    const deleteAccountLink = document.getElementById('deleteAccountLink');
-    if (deleteAccountLink) {
-        deleteAccountLink.addEventListener('click', (e) => {
+    const deleteAccountsLink = document.getElementById('deleteAccountsLink');
+    if (deleteAccountsLink) {
+        deleteAccountsLink.addEventListener('click', (e) => {
             e.preventDefault();
-            window.location.href = '../pages/delete-account.html';
+            window.location.href = '../pages/delete-accounts.html';
         });
     }
 });
@@ -127,7 +127,7 @@ async function logout() {
             return;
         }
         
-        const response = await fetch(`${BACKEND_BASE_URL}/api/account/logout/`, {
+        const response = await fetch(`${BACKEND_BASE_URL}/api/accounts/logout/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
