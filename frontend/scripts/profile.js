@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (changePasswordLink) {
         changePasswordLink.addEventListener('click', (e) => {
             e.preventDefault();
-            alert('비밀번호 변경 기능은 아직 개발 중입니다.');
+            window.location.href = '../pages/change-password.html';
         });
     }
     

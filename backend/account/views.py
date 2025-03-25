@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
 from django.shortcuts import get_object_or_404
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, update_session_auth_hash
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.exceptions import TokenError
 
@@ -215,3 +215,75 @@ class UserDetailView(APIView):
             {"success": True, "message": "회원 탈퇴에 성공했습니다."},
             status=status.HTTP_200_OK,
         )
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        current_password = request.data.get('current_password')
+        new_password = request.data.get('new_password')
+        confirm_password = request.data.get('confirm_password')
+
+        # 현재 비밀번호 확인
+        if not user.check_password(current_password):
+            return Response(
+                {
+                    "success": False,
+                    "message": "현재 비밀번호가 일치하지 않습니다."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 새 비밀번호 확인
+        if new_password != confirm_password:
+            return Response(
+                {
+                    "success": False,
+                    "message": "새 비밀번호가 일치하지 않습니다."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # 기존 토큰을 블랙리스트에 추가
+            refresh_token = request.data.get("refresh")
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+
+            # 새 비밀번호 설정
+            user.set_password(new_password)
+            user.save()
+            
+            # 새로운 토큰 발급
+            new_refresh = RefreshToken.for_user(user)
+            new_access = new_refresh.access_token
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "비밀번호가 성공적으로 변경되었습니다.",
+                    "access_token": str(new_access),
+                    "refresh_token": str(new_refresh)
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except TokenError:
+            return Response(
+                {
+                    "success": False,
+                    "message": "유효하지 않은 토큰입니다."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": f"비밀번호 변경 중 오류가 발생했습니다: {str(e)}"
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

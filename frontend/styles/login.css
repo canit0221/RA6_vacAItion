@@ -39,6 +39,10 @@ body {
     letter-spacing: -0.5px;
 }
 
+.logo .highlight {
+    color: #87CEEB;
+}
+
 .subtitle {
     font-size: 1.2em;
     color: #333;
@@ -53,12 +57,14 @@ body {
 }
 
 .input-group {
-    margin-bottom: 15px;
+    position: relative;
+    margin-bottom: 20px;
 }
 
 input {
     width: 100%;
-    padding: 15px;
+    height: 60px;
+    padding: 10px 15px;
     border: 1px solid #e1e1e1;
     border-radius: 8px;
     background-color: #f8f9fa;
@@ -75,7 +81,7 @@ input:focus {
 
 .forgot-password {
     text-align: right;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
 }
 
 .forgot-password a {
@@ -91,7 +97,7 @@ input:focus {
 
 .login-btn {
     width: 100%;
-    padding: 15px;
+    height: 60px;
     border: none;
     border-radius: 8px;
     background-color: #87CEEB;
@@ -100,6 +106,7 @@ input:focus {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
+    margin-bottom: 20px;
 }
 
 .login-btn:hover {
