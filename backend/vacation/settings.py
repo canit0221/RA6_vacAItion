@@ -26,6 +26,9 @@ load_dotenv()
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 
+# Social Auth 설정 추가
+SOCIAL_AUTH_GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+SOCIAL_AUTH_GOOGLE_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
 # DEBUG 설정을 환경변수로 관리
 DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
@@ -55,6 +58,11 @@ INSTALLED_APPS = [
     "accounts",
     "chatbot.apps.ChatbotConfig",
     "calendar_app",
+    # allauth
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
 ]
 
 REST_FRAMEWORK = {
@@ -83,6 +91,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # django-allauth를 위한 미들웨어 추가
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = "vacation.urls"
