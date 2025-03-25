@@ -303,14 +303,12 @@ class RequestPasswordResetView(APIView):
         try:
             user = get_user_model().objects.get(username=username, email=email)
             
-            # 비밀번호 재설정 토큰 생성
             token = default_token_generator.make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             
-            # 비밀번호 재설정 링크 생성
-            reset_url = f"https://vacaition.life/pages/reset-password.html?uid={uid}&token={token}"
+            # 여기를 Vercel 주소로 수정
+            reset_url = f"https://ra6vacaition.vercel.app/pages/reset-password.html?uid={uid}&token={token}"
             
-            # 이메일 내용 생성
             email_subject = "[vacAItion] 비밀번호 재설정 안내"
             email_message = f"""
                 안녕하세요, {user.nickname}님!

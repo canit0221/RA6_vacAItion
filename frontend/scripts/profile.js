@@ -31,37 +31,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // 회원탈퇴 링크 클릭 이벤트 처리
+    // 계정 삭제 링크 이벤트 리스너
     const deleteAccountsLink = document.getElementById('deleteAccountsLink');
     if (deleteAccountsLink) {
-        deleteAccountsLink.addEventListener('click', async (e) => {
+        deleteAccountsLink.addEventListener('click', (e) => {
             e.preventDefault();
-            
-            if (confirm('정말로 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-                try {
-                    const response = await fetch(`${BACKEND_BASE_URL}/delete-accounts/`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-
-                    if (response.ok) {
-                        // 로컬 스토리지 클리어
-                        localStorage.clear();
-                        alert('계정이 성공적으로 삭제되었습니다.');
-                        // 로그인 페이지로 리다이렉트
-                        window.location.href = './login.html?fromDeleteAccounts=true';
-                    } else {
-                        const data = await response.json();
-                        alert(data.message || '계정 삭제에 실패했습니다.');
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    alert('계정 삭제 중 오류가 발생했습니다.');
-                }
-            }
+            window.location.href = '../pages/delete-accounts.html';
         });
     }
 });
