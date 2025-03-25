@@ -8,6 +8,12 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model, update_session_auth_hash
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.exceptions import TokenError
+from django.core.mail import send_mail
+from django.conf import settings
+from django.template.loader import render_to_string
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.contrib.auth.tokens import default_token_generator
 
 
 # 회원가입
@@ -286,4 +292,123 @@ class ChangePasswordView(APIView):
                     "message": f"비밀번호 변경 중 오류가 발생했습니다: {str(e)}"
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class RequestPasswordResetView(APIView):
+    def post(self, request):
+        username = request.data.get('username')
+        email = request.data.get('email')
+        
+        try:
+            user = get_user_model().objects.get(username=username, email=email)
+            
+            # 비밀번호 재설정 토큰 생성
+            token = default_token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            
+            # 비밀번호 재설정 링크 생성
+            reset_url = f"https://vacaition.life/pages/reset-password.html?uid={uid}&token={token}"
+            
+            # 이메일 내용 생성
+            email_subject = "[vacAItion] 비밀번호 재설정 안내"
+            email_message = f"""
+                안녕하세요, {user.nickname}님!
+                
+                비밀번호 재설정을 요청하셨습니다.
+                아래 링크를 클릭하여 새로운 비밀번호를 설정해주세요:
+                
+                {reset_url}
+                
+                본인이 요청하지 않았다면 이 이메일을 무시하시면 됩니다.
+                링크는 24시간 동안 유효합니다.
+                
+                감사합니다.
+                vacAItion 팀
+            """
+            
+            # 이메일 발송
+            send_mail(
+                subject=email_subject,
+                message=email_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+            
+            return Response(
+                {
+                    "success": True,
+                    "message": "비밀번호 재설정 링크가 이메일로 발송되었습니다."
+                },
+                status=status.HTTP_200_OK
+            )
+            
+        except get_user_model().DoesNotExist:
+            return Response(
+                {
+                    "success": False,
+                    "message": "입력하신 정보와 일치하는 계정을 찾을 수 없습니다."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": f"이메일 발송 중 오류가 발생했습니다: {str(e)}"
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class ResetPasswordView(APIView):
+    def post(self, request):
+        uid = request.data.get('uid')
+        token = request.data.get('token')
+        new_password = request.data.get('new_password')
+        
+        if not all([uid, token, new_password]):
+            return Response(
+                {
+                    "success": False,
+                    "message": "필수 정보가 누락되었습니다."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        try:
+            # uid 디코딩하여 사용자 찾기
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = get_user_model().objects.get(pk=user_id)
+            
+            # 토큰 유효성 검사
+            if not default_token_generator.check_token(user, token):
+                return Response(
+                    {
+                        "success": False,
+                        "message": "유효하지 않거나 만료된 링크입니다."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # 새 비밀번호 설정
+            user.set_password(new_password)
+            user.save()
+            
+            return Response(
+                {
+                    "success": True,
+                    "message": "비밀번호가 성공적으로 변경되었습니다."
+                },
+                status=status.HTTP_200_OK
+            )
+            
+        except (TypeError, ValueError, OverflowError, get_user_model().DoesNotExist):
+            return Response(
+                {
+                    "success": False,
+                    "message": "유효하지 않은 비밀번호 재설정 링크입니다."
+                },
+                status=status.HTTP_400_BAD_REQUEST
             )
