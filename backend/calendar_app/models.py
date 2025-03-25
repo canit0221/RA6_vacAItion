@@ -10,6 +10,9 @@ class Schedule(models.Model):
     location = models.CharField(max_length=200)
     companion = models.CharField(max_length=200)
     memo = models.TextField(blank=True, null=True)
+
+    weather_main = models.CharField(max_length=100, blank=True, null=True)
+    weather_icon = models.CharField(max_length=20, blank=True, null=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
