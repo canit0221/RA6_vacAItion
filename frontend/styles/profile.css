@@ -46,6 +46,10 @@ header {
     letter-spacing: -0.5px;
 }
 
+.logo .highlight {
+    color: #87CEEB;
+}
+
 /* 네비게이션 스타일 */
 .main-nav ul {
     display: flex;

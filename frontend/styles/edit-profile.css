@@ -34,6 +34,10 @@ header {
     color: #87CEEB;
 }
 
+.logo .highlight {
+    color: #87CEEB;
+}
+
 .main-nav ul {
     display: flex;
     list-style: none;

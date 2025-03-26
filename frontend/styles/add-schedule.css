@@ -40,6 +40,10 @@ header {
     letter-spacing: -0.5px;
 }
 
+.logo .highlight {
+    color: #87CEEB;
+}
+
 .main-nav ul {
     display: flex;
     list-style: none;

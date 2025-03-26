@@ -169,4 +169,8 @@ header {
 .main-nav ul li a:hover, 
 .main-nav ul li a.active {
     color: #87CEEB;
+}
+
+.logo .highlight {
+    color: #87CEEB;
 } 

@@ -38,6 +38,10 @@ body {
     margin-bottom: 15px;
 }
 
+.logo .highlight {
+    color: #87CEEB;
+}
+
 .title {
     font-size: 22px;
     font-weight: 600;
