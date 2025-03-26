@@ -21,8 +21,10 @@ function updateUI() {
 }
 
 // 페이지 로드 시 실행
-document.addEventListener('DOMContentLoaded', () => {
-    // 직접 일정 불러오기 함수 호출 추가
+window.onload = function() {
+    console.log('[Debug] window.onload 이벤트 발생');
+    
+    // 직접 일정 불러오기 함수 호출 
     loadScheduleDirectly();
     
     // 로그인 상태 확인
@@ -70,10 +72,52 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitBtn = document.querySelector('.submit-btn');
     const deleteBtn = document.querySelector('.delete-btn');
     
-    // URL에서 날짜 파라미터 가져오기
+    // URL에서 날짜 매개변수 확인
     const urlParams = new URLSearchParams(window.location.search);
     const dateParam = urlParams.get('date');
+    const addedParam = urlParams.get('added');
     
+    console.log(`[Debug] URL 파라미터 - date: ${dateParam}, added: ${addedParam}`);
+    
+    // 신규 추가 여부 확인
+    if (addedParam === 'true') {
+        console.log('[Debug] 추천된 장소가 추가되었다는 메시지 표시');
+        showSuccessMessage('추천된 장소가 목록에 추가되었습니다. 추천 장소는 일정과 별개로 관리됩니다.');
+        
+        // 메모 필드의 자동 채워진 내용만 필터링 (일정 시간 후 실행)
+        setTimeout(() => {
+            const memoInput = document.getElementById('memo');
+            if (memoInput && memoInput.value) {
+                // 추천 장소/이벤트 관련 자동 생성 메모 패턴 제거
+                let memoText = memoInput.value;
+                const autoMemoPatterns = [
+                    /\[추천된 장소\][\s\S]*?(?=\n\n|\n$|$)/g,
+                    /\[추천된 이벤트\][\s\S]*?(?=\n\n|\n$|$)/g,
+                    /추천 이유:[\s\S]*?(?=\n\n|\n$|$)/g,
+                    /참고 링크:[\s\S]*?(?=\n\n|\n$|$)/g,
+                    /참고 정보:[\s\S]*?(?=\n\n|\n$|$)/g
+                ];
+                
+                // 자동 생성 메모 패턴 제거
+                autoMemoPatterns.forEach(pattern => {
+                    memoText = memoText.replace(pattern, '');
+                });
+                
+                // 연속된 빈 줄 제거 및 앞뒤 공백 제거
+                memoText = memoText.replace(/\n{3,}/g, '\n\n').trim();
+                
+                // 필터링된 메모 설정
+                memoInput.value = memoText;
+                console.log('[Debug] 페이지 로드 후 메모에서 자동 생성된 내용 필터링 완료');
+            }
+        }, 500);
+    }
+    
+    // 현재 날짜 구하기
+    const currentDate = new Date();
+    
+    // 날짜 매개변수가 있으면 해당 날짜 설정, 없으면 현재 날짜
+    let targetDate;
     if (dateParam) {
         // 날짜 파싱 (ISO 형식이 아닐 수 있으므로 직접 파싱)
         const dateParts = dateParam.split('-');
@@ -85,41 +129,54 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (!isNaN(selectedDate.getTime())) {
                 // 유효한 날짜인 경우
+                console.log(`[Debug] 파라미터에서 날짜 설정: ${selectedDate}`);
                 // 날짜 표시 업데이트
                 updateDateDisplay(selectedDate);
                 // 미니 캘린더 생성
                 initializeMiniCalendar(selectedDate);
                 // 해당 날짜에 저장된 일정 불러오기
                 fetchScheduleForDate(dateParam);
+                // 해당 날짜에 추천된 장소/이벤트 불러오기
+                console.log('[Debug] 추천된 장소 가져오기 시작 (dateParts)');
+                loadRecommendedPlaces(dateParam);
+                // 폼 제출 이벤트 리스너 설정
+                setupForm();
                 return;
             }
         }
         
         // 날짜 파싱 실패시 fallback
+        console.warn(`[Debug] 날짜 파싱 실패, fallback 사용: ${dateParam}`);
         updateDateDisplay(dateParam);
         try {
-            initializeMiniCalendar(new Date(dateParam));
+            targetDate = new Date(dateParam);
+            initializeMiniCalendar(targetDate);
             // 해당 날짜에 저장된 일정 불러오기
             fetchScheduleForDate(dateParam);
+            // 해당 날짜에 추천된 장소/이벤트 불러오기
+            console.log('[Debug] 추천된 장소 가져오기 시작 (fallback)');
+            loadRecommendedPlaces(dateParam);
         } catch (e) {
-            // 오류 처리
+            console.error('[Debug] 날짜 처리 중 오류:', e);
+            targetDate = currentDate;
         }
     } else {
-        // 날짜 파라미터가 없으면 오늘 날짜 사용
-        const today = new Date();
-        const dateStr = formatLocalDate(today);
-        updateDateDisplay(today);
-        initializeMiniCalendar(today);
+        // 기본값: 현재 날짜
+        console.log('[Debug] 날짜 파라미터 없음, 현재 날짜 사용');
+        targetDate = currentDate;
+        const dateStr = formatLocalDate(targetDate);
+        updateDateDisplay(targetDate);
+        initializeMiniCalendar(targetDate);
         // 오늘 날짜의 일정 불러오기
         fetchScheduleForDate(dateStr);
+        // 오늘 날짜에 추천된 장소/이벤트 불러오기
+        console.log('[Debug] 추천된 장소 가져오기 시작 (현재 날짜)');
+        loadRecommendedPlaces(dateStr);
     }
-    
-    // 로그아웃 이벤트 리스너 설정
-    setupNavLinks();
     
     // 폼 제출 이벤트 리스너 설정
     setupForm();
-});
+};
 
 // 직접 일정 데이터를 불러오는 새로운 함수 추가
 async function loadScheduleDirectly() {
@@ -127,6 +184,8 @@ async function loadScheduleDirectly() {
         // URL에서 날짜 가져오기
         const urlParams = new URLSearchParams(window.location.search);
         const dateParam = urlParams.get('date');
+        const addedParam = urlParams.get('added');
+        
         if (!dateParam) {
             return;
         }
@@ -138,77 +197,137 @@ async function loadScheduleDirectly() {
             return;
         }
         
-        // 토큰 가져오기
+        // 접근 토큰 확인
         const token = localStorage.getItem('access_token');
         if (!token) {
             return;
         }
         
-        // 일정을 불러오는 중임을 표시
-        showInfoMessage('일정을 불러오는 중입니다...');
+        // 전역 날짜 변수 업데이트
+        selectedDate = new Date(normalizedDate);
         
-        // 해당 날짜의 일정 가져오기 (서버 측 필터링)
+        // API 요청: 해당 날짜의 일정 가져오기
         const response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/?date=${normalizedDate}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: {'Authorization': `Bearer ${token}`}
         });
         
         if (!response.ok) {
-            showErrorMessage('일정을 불러올 수 없습니다.');
             return;
         }
         
-        // 응답 데이터
+        // 응답 데이터 가져오기
         const data = await response.json();
         
-        // 일정 배열 추출
-        const schedules = Array.isArray(data) ? data : 
-                         (data.schedules && Array.isArray(data.schedules)) ? data.schedules : 
-                         (data ? [data] : []);
+        // 데이터 구조 처리
+        let schedules = [];
+        
+        // 새로운 API 응답 형식 처리 (날씨 포함)
+        if (data.schedules && Array.isArray(data.schedules)) {
+            schedules = data.schedules;
+        }
+        // 이전 API 응답 형식 처리 (배열만 반환)
+        else if (Array.isArray(data)) {
+            schedules = data;
+        }
+        // 단일 객체인 경우
+        else if (typeof data === 'object' && data !== null) {
+            if (data.id) {
+                schedules = [data]; // 객체 하나면 배열로 변환
+            }
+        }
+        
+        // 날짜 파싱 - 연,월,일 분리
+        const [year, month, day] = normalizedDate.split('-').map(num => parseInt(num, 10));
         
         // 정확히 일치하는 일정 찾기
         let foundSchedule = null;
         
-        for (const schedule of schedules) {
-            if (!schedule.date) continue;
+        for (const item of schedules) {
+            if (!item.date) continue;
             
             // 날짜 정규화하여 비교
-            const scheduleNormalizedDate = normalizeDate(schedule.date);
+            const itemNormalizedDate = normalizeDate(item.date);
+            if (!itemNormalizedDate) continue;
             
-            // 전체 날짜가 일치하면 사용
-            if (scheduleNormalizedDate === normalizedDate) {
-                foundSchedule = schedule;
+            // 연, 월, 일이 모두 일치하는지 확인
+            const [itemYear, itemMonth, itemDay] = itemNormalizedDate.split('-').map(num => parseInt(num, 10));
+            
+            if (itemYear === year && itemMonth === month && itemDay === day) {
+                foundSchedule = item;
                 break;
             }
         }
         
-        // 일정이 있으면 폼에 입력
+        // 일정 정보 채우기
         if (foundSchedule) {
-            // DOM 요소 직접 접근
             const locationInput = document.getElementById('location');
             const companionInput = document.getElementById('companion');
             const memoInput = document.getElementById('memo');
             
-            if (locationInput) {
-                locationInput.value = foundSchedule.location || '';
+            if (locationInput) locationInput.value = foundSchedule.location || '';
+            if (companionInput) companionInput.value = foundSchedule.companion || '';
+            
+            // 메모 처리: 추천 장소가 추가된 경우(added=true) 자동 생성된 메모 패턴 필터링
+            if (memoInput && foundSchedule.memo) {
+                let memoText = foundSchedule.memo;
+                
+                // 추천 장소 추가 시 자동 생성된 메모 패턴 필터링
+                if (addedParam === 'true') {
+                    // 추천 장소/이벤트 관련 자동 생성 메모 패턴 제거
+                    const autoMemoPatterns = [
+                        /\[추천된 장소\][\s\S]*?(?=\n\n|\n$|$)/g,
+                        /\[추천된 이벤트\][\s\S]*?(?=\n\n|\n$|$)/g,
+                        /추천 이유:[\s\S]*?(?=\n\n|\n$|$)/g,
+                        /참고 링크:[\s\S]*?(?=\n\n|\n$|$)/g,
+                        /참고 정보:[\s\S]*?(?=\n\n|\n$|$)/g
+                    ];
+                    
+                    // 자동 생성 메모 패턴 제거
+                    autoMemoPatterns.forEach(pattern => {
+                        memoText = memoText.replace(pattern, '');
+                    });
+                    
+                    // 연속된 빈 줄 제거
+                    memoText = memoText.replace(/\n{3,}/g, '\n\n');
+                    
+                    // 앞뒤 공백 제거
+                    memoText = memoText.trim();
+                    
+                    console.log('[Debug] loadScheduleDirectly - 메모에서 자동 생성된 내용 필터링 완료');
+                }
+                
+                // 필터링된 메모 설정
+                memoInput.value = memoText;
+            } else if (memoInput) {
+                memoInput.value = '';
             }
             
-            if (companionInput) {
-                companionInput.value = foundSchedule.companion || '';
+            // 추천 장소 추가 시 메시지 표시
+            if (addedParam === 'true') {
+                showInfoMessage('추천 장소가 추가되었습니다. 메모는 사용자가 직접 관리합니다.');
             }
             
-            if (memoInput) {
-                memoInput.value = foundSchedule.memo || '';
-            }
-            
-            // 일정 로드 성공 메시지 표시
-            showSuccessMessage('저장된 일정을 불러왔습니다.');
+            return true;
         } else {
-            // 일정이 없을 경우 메시지 표시
-            showInfoMessage('해당 날짜에 저장된 일정이 없습니다.');
+            // 일정이 없는 경우 폼 초기화
+            const locationInput = document.getElementById('location');
+            const companionInput = document.getElementById('companion');
+            const memoInput = document.getElementById('memo');
+            
+            if (locationInput) locationInput.value = '';
+            if (companionInput) companionInput.value = '';
+            if (memoInput) memoInput.value = '';
+            
+            // 추천 장소 추가 시 메시지 표시
+            if (addedParam === 'true') {
+                showInfoMessage('추천 장소가 추가되었지만, 해당 날짜에 저장된 일정이 없습니다.');
+            }
+            
+            return false;
         }
     } catch (error) {
-        // 오류 메시지 표시
-        showErrorMessage('일정을 불러오는 중 오류가 발생했습니다.');
+        console.error('일정 직접 로드 중 오류:', error);
+        return false;
     }
 }
 
@@ -457,7 +576,7 @@ async function fetchWeatherForDate(dateStr) {
                 if (result.icon) {
                     // 아이콘을 기반으로 텍스트 추론
                     result.text = getWeatherTextFromIcon(result.icon);
-    } else {
+                } else {
                     result.text = '알 수 없는 날씨';
                 }
             }
@@ -544,6 +663,28 @@ function setupForm() {
     
     // 일정 로드
     loadSchedule();
+    
+    // 저장 버튼과 다른 버튼들에 이벤트 리스너 추가 (중복 방지 코드 포함)
+    const saveBtn = document.querySelector('.save-btn');
+    const submitBtn = document.querySelector('.submit-btn');
+    const deleteBtn = document.querySelector('.delete-btn');
+    
+    // 기존 이벤트 리스너 제거 (중복 방지)
+    if (saveBtn) {
+        saveBtn.removeEventListener('click', handleSave);
+        saveBtn.addEventListener('click', handleSave);
+        console.log('[Debug] 저장 버튼에 이벤트 리스너 설정 완료');
+    }
+    
+    if (submitBtn) {
+        submitBtn.removeEventListener('click', handleSubmit);
+        submitBtn.addEventListener('click', handleSubmit);
+    }
+    
+    if (deleteBtn) {
+        deleteBtn.removeEventListener('click', handleDelete);
+        deleteBtn.addEventListener('click', handleDelete);
+    }
 }
 
 // 이벤트 핸들러 함수들
@@ -617,40 +758,84 @@ async function saveScheduleToDB() {
     
     // URL에서 날짜 파라미터 가져오기
     const urlParams = new URLSearchParams(window.location.search);
-    const dateParam = urlParams.get('date');
+    let dateParam = urlParams.get('date');
+    const addedParam = urlParams.get('added'); // 여기에 addedParam 추가
     
+    // 날짜 파라미터가 없는 경우 현재 날짜 사용
     if (!dateParam) {
-        isSubmitting = false;
-        return;
+        const today = new Date();
+        dateParam = formatLocalDate(today);
+        console.log('[Debug] 날짜 파라미터가 없어 현재 날짜 사용:', dateParam);
+    } else {
+        console.log('[Debug] 일정 저장 시작 - 날짜:', dateParam);
     }
     
     // 날짜 정규화 (YYYY-MM-DD 형식으로 변환)
     const normalizedDate = normalizeDate(dateParam);
     if (!normalizedDate) {
+        console.error('[Error] 날짜 정규화 실패:', dateParam);
+        showErrorMessage('유효하지 않은 날짜 형식입니다.');
         isSubmitting = false;
         return;
     }
+    
+    console.log('[Debug] 정규화된 날짜:', normalizedDate);
     
     // 날짜 파싱 - 연,월,일 분리
     const [year, month, day] = normalizedDate.split('-').map(num => parseInt(num, 10));
     
     const location = document.getElementById('location').value.trim();
     const companion = document.getElementById('companion').value.trim();
-    const memo = document.getElementById('memo').value.trim();
+    let memo = document.getElementById('memo').value.trim();
+    
+    // 추천된 장소가 추가된 경우(added=true), 메모 필드의 자동 생성된 내용 필터링
+    if (addedParam === 'true') {
+        console.log('[Debug] 추천 장소 추가 상태에서 일정 저장. 메모 필드 필터링 확인');
+        
+        // 자동 생성된 메모 내용 필터링
+        const autoMemoPatterns = [
+            /\[추천된 장소\][\s\S]*?(?=\n\n|\n$|$)/g,
+            /\[추천된 이벤트\][\s\S]*?(?=\n\n|\n$|$)/g,
+            /추천 이유:[\s\S]*?(?=\n\n|\n$|$)/g,
+            /참고 링크:[\s\S]*?(?=\n\n|\n$|$)/g,
+            /참고 정보:[\s\S]*?(?=\n\n|\n$|$)/g
+        ];
+        
+        // 자동 생성 메모 패턴 제거
+        let filteredMemo = memo;
+        autoMemoPatterns.forEach(pattern => {
+            filteredMemo = filteredMemo.replace(pattern, '');
+        });
+        
+        // 연속된 빈 줄 제거 및 앞뒤 공백 제거
+        filteredMemo = filteredMemo.replace(/\n{3,}/g, '\n\n').trim();
+        
+        // 필터링된 메모 사용
+        memo = filteredMemo;
+        console.log('[Debug] 저장 전 메모 필터링 결과:', memo.length ? '메모 내용 있음' : '메모 내용 없음');
+    }
+    
+    console.log('[Debug] 폼 데이터:', { location, companion, memo });
     
     // 필수 필드 검증
     if (!location) {
+        console.error('[Error] 위치 필드가 비어 있습니다.');
+        showErrorMessage('위치를 입력해주세요.', 'location');
         document.getElementById('location').focus();
         isSubmitting = false;
         return;
     }
     
-    // 구나 동 단위 입력 검증
+    // 구나 동 단위 입력 검증 - 임시로 비활성화
+    /*
     if (!validateLocationFormat(location)) {
+        console.error('[Error] 위치 형식이 잘못되었습니다:', location);
+        showErrorMessage('위치 형식이 올바르지 않습니다. 구나 동 단위로 입력해주세요.', 'location');
         document.getElementById('location').focus();
         isSubmitting = false;
         return;
     }
+    */
     
     // 저장 버튼 비활성화
     const saveBtn = document.querySelector('.save-btn');
@@ -668,9 +853,13 @@ async function saveScheduleToDB() {
             memo: memo || ''
         };
         
+        console.log('[Debug] 전송할 데이터:', scheduleData);
+        
         // 인증 토큰 확인
         const accessToken = localStorage.getItem('access_token');
         if (!accessToken) {
+            console.error('[Error] 인증 토큰이 없습니다.');
+            showErrorMessage('로그인이 필요합니다.');
             window.location.replace('../pages/login.html');
             return;
         }
@@ -683,6 +872,7 @@ async function saveScheduleToDB() {
             });
             
         if (!checkResponse.ok) {
+            console.error('[Error] 일정 조회 실패:', checkResponse.status, checkResponse.statusText);
             throw new Error(`일정 조회 실패: ${checkResponse.status}`);
         }
         
@@ -692,6 +882,8 @@ async function saveScheduleToDB() {
         const schedules = Array.isArray(data) ? data :
                          (data.schedules && Array.isArray(data.schedules)) ? data.schedules :
                          (data ? [data] : []);
+        
+        console.log('[Debug] 기존 일정 데이터:', schedules);
         
         // 정확히 일치하는 일정 찾기 (연-월-일 전체 비교)
         let existingSchedule = null;
@@ -708,6 +900,7 @@ async function saveScheduleToDB() {
             
             if (scheduleYear === year && scheduleMonth === month && scheduleDay === day) {
                 existingSchedule = schedule;
+                console.log('[Debug] 기존 일정 발견:', existingSchedule);
                 break;
             }
         }
@@ -716,6 +909,7 @@ async function saveScheduleToDB() {
         
         // 기존 일정이 있으면 업데이트(PUT), 없으면 새로 생성(POST)
         if (existingSchedule) {
+            console.log('[Debug] 기존 일정 업데이트 시도:', existingSchedule.id);
             response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/${existingSchedule.id}/`, {
                 method: 'PUT',
                 headers: {
@@ -725,6 +919,7 @@ async function saveScheduleToDB() {
                 body: JSON.stringify(scheduleData)
             });
         } else {
+            console.log('[Debug] 새 일정 생성 시도');
             response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/`, {
                 method: 'POST',
                 headers: {
@@ -735,20 +930,53 @@ async function saveScheduleToDB() {
             });
         }
         
+        console.log('[Debug] API 응답 상태:', response.status, response.statusText);
+        
         // 응답 처리
         if (response.ok) {
             const result = await response.json();
+            console.log('[Debug] 저장 성공:', result);
+            
+            // 성공 메시지 표시
+            showSuccessMessage('일정이 성공적으로 저장되었습니다!');
             
             // 새로운 일정 데이터로 폼 업데이트
             document.getElementById('location').value = location;
             document.getElementById('companion').value = companion;
             document.getElementById('memo').value = memo;
         } else {
-            const errorData = await response.json().catch(e => ({ error: '오류 응답을 파싱할 수 없습니다' }));
+            // 오류 응답 자세히 처리
+            console.error('[Error] 저장 실패:', response.status, response.statusText);
+            let errorMessage = `저장에 실패했습니다 (${response.status})`;
+            
+            try {
+                const errorData = await response.json();
+                console.error('[Error] 상세 오류 데이터:', errorData);
+                
+                if (errorData.error) errorMessage += `: ${errorData.error}`;
+                else if (errorData.message) errorMessage += `: ${errorData.message}`;
+                else if (errorData.detail) errorMessage += `: ${errorData.detail}`;
+                
+                // 필드별 오류 처리
+                if (errorData.location) {
+                    showErrorMessage(`위치 오류: ${errorData.location}`, 'location');
+                    return;
+                }
+                if (errorData.date) {
+                    showErrorMessage(`날짜 오류: ${errorData.date}`);
+                    return;
+                }
+            } catch (e) {
+                console.error('[Error] 오류 응답 파싱 실패:', e);
+            }
+            
+            showErrorMessage(errorMessage);
         }
         
     } catch (error) {
         // 오류 처리
+        console.error('[Error] 일정 저장 중 오류:', error);
+        showErrorMessage('일정 저장 중 오류가 발생했습니다: ' + error.message);
     } finally {
         // 저장 버튼 상태 복원
         if (saveBtn) {
@@ -1092,106 +1320,211 @@ async function logout() {
 
 // 특정 날짜의 일정 불러오기
 async function fetchScheduleForDate(date) {
-            try {
-                // 1. 접근 토큰 확인
-                const token = localStorage.getItem('access_token');
-                if (!token) {
+    try {
+        // URL 파라미터에서 added=true 여부 확인
+        const urlParams = new URLSearchParams(window.location.search);
+        const addedParam = urlParams.get('added');
+
+        // 1. 접근 토큰 확인
+        const token = localStorage.getItem('access_token');
+        if (!token) {
             return;
         }
         
-                // 2. 날짜 정규화 - YYYY-MM-DD 형식 확보
-                const normalizedDate = normalizeDate(date);
-                
-                if (!normalizedDate) {
-                    return;
-                }
-                
-                // 일정을 불러오는 중임을 표시
-                showInfoMessage('일정을 불러오는 중입니다...');
-                
-                // 날짜 파싱
-                const [year, month, day] = normalizedDate.split('-').map(num => parseInt(num, 10));
-                
-                // 3. 해당 날짜로 직접 API 요청 (서버 측 필터링)
-                const response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/?date=${normalizedDate}`, {
-                    headers: {'Authorization': `Bearer ${token}`}
-                });
+        // 2. 날짜 정규화 - YYYY-MM-DD 형식 확보
+        const normalizedDate = normalizeDate(date);
         
+        if (!normalizedDate) {
+            return;
+        }
+        
+        // 일정을 불러오는 중임을 표시
+        if (addedParam !== 'true') { // 추천 장소가 추가된 경우에는 이 메시지를 표시하지 않음
+            showInfoMessage('일정을 불러오는 중입니다...');
+        }
+        
+        // 날짜 파싱
+        const [year, month, day] = normalizedDate.split('-').map(num => parseInt(num, 10));
+        
+        // 3. 해당 날짜로 직접 API 요청 (서버 측 필터링)
+        const response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/?date=${normalizedDate}`, {
+            headers: {'Authorization': `Bearer ${token}`}
+        });
+
         if (!response.ok) {
-                    showErrorMessage('일정을 불러올 수 없습니다.');
+            showErrorMessage('일정을 불러올 수 없습니다.');
             return;
         }
         
-                // 4. 응답 데이터 가져오기
+        // 4. 응답 데이터 가져오기
         const data = await response.json();
+        
+        // 5. 데이터 구조 처리
+        let schedules = [];
+        let weatherData = null;
+        
+        // 새로운 API 응답 형식 처리 (날씨 포함)
+        if (data.schedules && Array.isArray(data.schedules)) {
+            schedules = data.schedules;
+            weatherData = data.weather;
+        }
+        // 이전 API 응답 형식 처리 (배열만 반환)
+        else if (Array.isArray(data)) {
+            schedules = data;
+        }
+        // 단일 객체인 경우
+        else if (typeof data === 'object' && data !== null) {
+            if (data.id) {
+                schedules = [data]; // 객체 하나면 배열로 변환
+            }
+        }
+        
+        // 6. 정규화된 날짜가 일치하는 일정 찾기
+        let foundSchedule = null;
+        for (const item of schedules) {
+            if (!item.date) continue;
+            
+            // 모든 날짜를 YYYY-MM-DD 형식으로 정규화
+            const itemNormalizedDate = normalizeDate(item.date);
+            if (!itemNormalizedDate) continue;
+            
+            // 연, 월, 일이 모두 일치하는지 확인
+            const [itemYear, itemMonth, itemDay] = itemNormalizedDate.split('-').map(num => parseInt(num, 10));
+            
+            if (itemYear === year && itemMonth === month && itemDay === day) {
+                foundSchedule = item;
+                break;
+            }
+        }
+        
+        // 7. 날씨 데이터 처리 (날씨 정보가 있으면)
+        if (weatherData && Array.isArray(weatherData)) {
+            // 해당 날짜의 날씨 찾기
+            const dayWeather = weatherData.find(item => item.date === normalizedDate);
+            if (dayWeather) {
+                // 날씨 정보 업데이트
+                updateWeatherDisplay(dayWeather);
+            }
+        }
+        
+        // 8. 일정이 있으면 폼에 데이터 표시
+        if (foundSchedule) {
+            // a. 요소 찾기
+            const locationInput = document.getElementById('location');
+            const companionInput = document.getElementById('companion');
+            const memoInput = document.getElementById('memo');
+            
+            // b. 데이터 채우기 (null 체크 포함)
+            if (locationInput) locationInput.value = foundSchedule.location || '';
+            if (companionInput) companionInput.value = foundSchedule.companion || '';
+            
+            // 메모 처리: 추천 장소가 추가된 경우(added=true) 자동 생성된 메모 필터링
+            if (memoInput && foundSchedule.memo) {
+                let memoText = foundSchedule.memo;
                 
-                // 5. 배열 형태로 변환
-                let schedules = [];
-                if (Array.isArray(data)) {
-                    schedules = data;
-                } else if (data.schedules && Array.isArray(data.schedules)) {
-                    schedules = data.schedules;
-                } else if (typeof data === 'object' && data !== null) {
-                    schedules = [data]; // 객체 하나면 배열로 변환
+                // 추천 장소 추가 시 자동 생성된 메모 패턴 필터링
+                if (addedParam === 'true') {
+                    // 추천 장소/이벤트 관련 자동 생성 메모 패턴 제거
+                    const autoMemoPatterns = [
+                        /\[추천된 장소\][\s\S]*?(?=\n\n|\n$|$)/g,
+                        /\[추천된 이벤트\][\s\S]*?(?=\n\n|\n$|$)/g,
+                        /추천 이유:[\s\S]*?(?=\n\n|\n$|$)/g,
+                        /참고 링크:[\s\S]*?(?=\n\n|\n$|$)/g,
+                        /참고 정보:[\s\S]*?(?=\n\n|\n$|$)/g
+                    ];
+                    
+                    // 자동 생성 메모 패턴 제거
+                    autoMemoPatterns.forEach(pattern => {
+                        memoText = memoText.replace(pattern, '');
+                    });
+                    
+                    // 연속된 빈 줄 제거
+                    memoText = memoText.replace(/\n{3,}/g, '\n\n');
+                    
+                    // 앞뒤 공백 제거
+                    memoText = memoText.trim();
+                    
+                    console.log('[Debug] 메모에서 자동 생성된 내용 필터링 완료');
                 }
                 
-                // 6. 정규화된 날짜가 일치하는 일정 찾기
-                let foundSchedule = null;
-                for (const item of schedules) {
-                    if (!item.date) continue;
-                    
-                    // 모든 날짜를 YYYY-MM-DD 형식으로 정규화
-                    const itemNormalizedDate = normalizeDate(item.date);
-                    if (!itemNormalizedDate) continue;
-                    
-                    // 연, 월, 일이 모두 일치하는지 확인
-                    const [itemYear, itemMonth, itemDay] = itemNormalizedDate.split('-').map(num => parseInt(num, 10));
-                    
-                    if (itemYear === year && itemMonth === month && itemDay === day) {
-                        foundSchedule = item;
-                        break;
-                    }
-                }
-                
-                // 7. 일정이 있으면 폼에 데이터 표시
-                if (foundSchedule) {
-                    // a. 요소 찾기
-                    const locationInput = document.getElementById('location');
-                    const companionInput = document.getElementById('companion');
-                    const memoInput = document.getElementById('memo');
-                    
-                    // b. 데이터 채우기 (null 체크 포함)
-                    if (locationInput) locationInput.value = foundSchedule.location || '';
-                    if (companionInput) companionInput.value = foundSchedule.companion || '';
-                    if (memoInput) memoInput.value = foundSchedule.memo || '';
-                    
-                    // 성공 메시지 표시
-                    showSuccessMessage('저장된 일정을 불러왔습니다.');
-                    
-                    return true;
-                } else {
-                    // 폼 초기화
-                    const locationInput = document.getElementById('location');
-                    const companionInput = document.getElementById('companion');
-                    const memoInput = document.getElementById('memo');
-                    
-                    if (locationInput) locationInput.value = '';
-                    if (companionInput) companionInput.value = '';
-                    if (memoInput) memoInput.value = '';
-                    
-                    // 정보 메시지 표시
-                    showInfoMessage('해당 날짜에 저장된 일정이 없습니다.');
-                    
-                    return false;
-                }
-            } catch (error) {
-                // 오류 메시지 표시
+                // 필터링된 메모 설정
+                memoInput.value = memoText;
+            } else if (memoInput) {
+                memoInput.value = '';
+            }
+            
+            // 추천 장소 추가 시 메시지 표시
+            if (addedParam === 'true') {
+                showInfoMessage('추천 장소가 추가되었습니다. 메모는 사용자가 직접 관리합니다.');
+            } else {
+                // 성공 메시지 표시
+                showSuccessMessage('저장된 일정을 불러왔습니다.');
+            }
+            
+            return true;
+        } else {
+            // 폼 초기화
+            const locationInput = document.getElementById('location');
+            const companionInput = document.getElementById('companion');
+            const memoInput = document.getElementById('memo');
+            
+            if (locationInput) locationInput.value = '';
+            if (companionInput) companionInput.value = '';
+            if (memoInput) memoInput.value = '';
+            
+            // 정보 메시지 표시
+            if (addedParam === 'true') {
+                showInfoMessage('추천 장소가 추가되었지만, 해당 날짜에 저장된 일정이 없습니다.');
+            } else {
+                showInfoMessage('해당 날짜에 저장된 일정이 없습니다.');
+            }
+            
+            return false;
+        }
+    } catch (error) {
+        console.error('일정 불러오기 오류:', error);
+        // 오류 메시지 표시
         showErrorMessage('일정을 불러오는 중 오류가 발생했습니다.');
-                return false;
+        return false;
     }
 }
 
-        // 일정 삭제 함수
+// 날씨 정보 업데이트 함수
+function updateWeatherDisplay(weatherData) {
+    if (!weatherData) return;
+    
+    try {
+        // 선택된 날짜 표시 업데이트
+        const selectedDateEl = document.querySelector('.selected-date');
+        if (selectedDateEl) {
+            // 기존 텍스트에서 이모티콘 제거 (이미 있는 경우)
+            let dateText = selectedDateEl.textContent.replace(/[\u{1F300}-\u{1F5FF}\u{1F900}-\u{1F9FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
+            
+            // 날씨 아이콘 추가
+            if (weatherData.icon) {
+                dateText += ` ${weatherData.icon}`;
+            }
+            
+            selectedDateEl.textContent = dateText;
+        }
+        
+        // 미니 캘린더의 해당 날짜에도 날씨 아이콘 표시
+        const calendarDay = document.querySelector(`.calendar-day.selected .weather-icon`);
+        if (calendarDay && weatherData.icon) {
+            calendarDay.textContent = weatherData.icon;
+            
+            // 툴크으로 날씨 설명 추가
+            const dayEl = calendarDay.closest('.calendar-day');
+            if (dayEl && weatherData.text) {
+                dayEl.title = weatherData.text;
+            }
+        }
+    } catch (error) {
+        console.error('날씨 표시 업데이트 오류:', error);
+    }
+}
+
+// 일정 삭제 함수
 window.deleteSchedule = function() {
     // 이미 실행 중이면 중복 실행 방지
     if (window.deleteInProgress === true) {
@@ -1210,111 +1543,125 @@ window.deleteSchedule = function() {
             return;
         }
         
-                // 날짜 정규화
-                const normalizedDate = normalizeDate(dateParam);
+        // 날짜 정규화
+        const normalizedDate = normalizeDate(dateParam);
+        
+        if (!normalizedDate) {
+            window.deleteInProgress = false;
+            return;
+        }
+        
+        // 날짜를 연월일로 분리
+        const [year, month, day] = normalizedDate.split('-').map(num => parseInt(num, 10));
+        
+        // 토큰 확인
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            window.deleteInProgress = false;
+            return;
+        }
+        
+        // 확인 대화상자
+        if (!confirm('이 일정을 삭제하시겠습니까?')) {
+            window.deleteInProgress = false;
+            return;
+        }
+        
+        // 삭제 버튼 상태 변경
+        const deleteBtn = document.querySelector('.delete-btn');
+        if (deleteBtn) {
+            deleteBtn.disabled = true;
+            deleteBtn.textContent = '삭제 중...';
+        }
+        
+        // 모든 일정 조회 (서버측 필터링 사용하지 않음)
+        fetch(`${BACKEND_BASE_URL}/calendar/schedules/`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // 데이터 구조 처리 - 새로운 API 응답 형식도 고려
+            let schedules = [];
+            
+            // 새로운 API 응답 형식
+            if (data.schedules && Array.isArray(data.schedules)) {
+                schedules = data.schedules;
+            }
+            // 이전 API 응답 형식 (배열만 반환)
+            else if (Array.isArray(data)) {
+                schedules = data;
+            }
+            // 단일 객체인 경우
+            else if (typeof data === 'object' && data !== null && data.id) {
+                schedules = [data];
+            }
+            // 기타 경우는 빈 배열 유지
+            
+            // 정확히 일치하는 일정 찾기 (연-월-일 전체 비교)
+            const matchingSchedule = schedules.find(schedule => {
+                if (!schedule.date) return false;
                 
-                if (!normalizedDate) {
-            window.deleteInProgress = false;
-            return;
-        }
-        
-                // 날짜를 연월일로 분리
-                const [year, month, day] = normalizedDate.split('-').map(num => parseInt(num, 10));
+                // 날짜 정규화하여 비교
+                const scheduleNormalizedDate = normalizeDate(schedule.date);
+                if (!scheduleNormalizedDate) return false;
                 
-                // 토큰 확인
-                const token = localStorage.getItem('access_token');
-                if (!token) {
-            window.deleteInProgress = false;
-            return;
-        }
-        
-                // 확인 대화상자
-                if (!confirm('이 일정을 삭제하시겠습니까?')) {
-            window.deleteInProgress = false;
-            return;
-        }
-        
-                // 삭제 버튼 상태 변경
-                const deleteBtn = document.querySelector('.delete-btn');
+                // 연, 월, 일이 모두 일치하는지 확인
+                const [scheduleYear, scheduleMonth, scheduleDay] = scheduleNormalizedDate.split('-').map(num => parseInt(num, 10));
+                
+                return scheduleYear === year && scheduleMonth === month && scheduleDay === day;
+            });
+            
+            if (!matchingSchedule) {
+                // 일치하는 일정이 없음
+                window.deleteInProgress = false;
+                
+                // 버튼 상태 복원
                 if (deleteBtn) {
-                    deleteBtn.disabled = true;
-                    deleteBtn.textContent = '삭제 중...';
+                    deleteBtn.disabled = false;
+                    deleteBtn.textContent = '일정 삭제하기';
                 }
                 
-                // 모든 일정 조회 (서버측 필터링 사용하지 않음)
-                fetch(`${BACKEND_BASE_URL}/calendar/schedules/`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // 데이터를 항상 배열로 변환
-                    const schedules = Array.isArray(data) ? data :
-                                     (data.schedules && Array.isArray(data.schedules)) ? data.schedules :
-                                     (data ? [data] : []);
-                    
-                    // 정확히 일치하는 일정 찾기 (연-월-일 전체 비교)
-                    const matchingSchedule = schedules.find(schedule => {
-                        if (!schedule.date) return false;
-                        
-                        // 날짜 정규화하여 비교
-                        const scheduleNormalizedDate = normalizeDate(schedule.date);
-                        if (!scheduleNormalizedDate) return false;
-                        
-                        // 연, 월, 일이 모두 일치하는지 확인
-                        const [scheduleYear, scheduleMonth, scheduleDay] = scheduleNormalizedDate.split('-').map(num => parseInt(num, 10));
-                        
-                        return scheduleYear === year && scheduleMonth === month && scheduleDay === day;
-                    });
-                    
-                    if (!matchingSchedule) {
-                        window.deleteInProgress = false;
-                        
-                        // 버튼 상태 복원
-                        if (deleteBtn) {
-                            deleteBtn.disabled = false;
-                            deleteBtn.textContent = '일정 삭제하기';
-                        }
-                        
-                        return;
-                    }
-                    
-                    // 일정 ID로 삭제 요청
-                    return fetch(`${BACKEND_BASE_URL}/calendar/schedules/${matchingSchedule.id}/`, {
+                showErrorMessage('삭제할 일정을 찾을 수 없습니다.');
+                return;
+            }
+            
+            // 일정 ID로 삭제 요청
+            return fetch(`${BACKEND_BASE_URL}/calendar/schedules/${matchingSchedule.id}/`, {
                 method: 'DELETE',
                 headers: {
-                            'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
         })
         .then(response => {
-                    if (!response) return; // 이전 단계에서 오류 발생
+            if (!response) return; // 이전 단계에서 오류 발생
             
             if (response.status === 204 || response.status === 200) {
-                        // 삭제 성공
-                        
-                        // 1. 폼 필드 초기화
-                        document.getElementById('location').value = '';
-                        document.getElementById('companion').value = '';
-                        document.getElementById('memo').value = '';
-                        
-                        // 2. 1.5초 후 캘린더로 이동 (색상 업데이트 위해)
+                // 삭제 성공
+                
+                // 1. 폼 필드 초기화
+                document.getElementById('location').value = '';
+                document.getElementById('companion').value = '';
+                document.getElementById('memo').value = '';
+                
+                // 2. 1.5초 후 캘린더로 이동 (색상 업데이트 위해)
                 setTimeout(() => {
                     window.location.href = '../index.html';
                         }, 500);
             } else {
-                        // 삭제 실패
-                        
-                        // 버튼 상태 복원
-                        if (deleteBtn) {
-                            deleteBtn.disabled = false;
-                            deleteBtn.textContent = '일정 삭제하기';
-                        }
-                    }
-                    
-                    window.deleteInProgress = false;
+                // 삭제 실패
+                
+                // 버튼 상태 복원
+                if (deleteBtn) {
+                    deleteBtn.disabled = false;
+                    deleteBtn.textContent = '일정 삭제하기';
+                }
+            }
+            
+            window.deleteInProgress = false;
         })
         .catch(error => {
-                    // 버튼 상태 복원
+            // 버튼 상태 복원
             if (deleteBtn) {
                 deleteBtn.disabled = false;
                 deleteBtn.textContent = '일정 삭제하기';
@@ -1322,178 +1669,421 @@ window.deleteSchedule = function() {
             
             window.deleteInProgress = false;
         });
-            } catch (error) {
-                window.deleteInProgress = false;
+    } catch (error) {
+        window.deleteInProgress = false;
         
-                // 버튼 상태 복원
+        // 버튼 상태 복원
         const deleteBtn = document.querySelector('.delete-btn');
         if (deleteBtn) {
             deleteBtn.disabled = false;
             deleteBtn.textContent = '일정 삭제하기';
-                }
+        }
+    }
+};
+
+// 전역 함수로 명시적 등록 (파일 끝에 추가)
+window.saveScheduleToDB = saveScheduleToDB;
+window.submitSchedule = submitSchedule;
+window.deleteSchedule = deleteSchedule;
+window.fetchWeatherForDate = fetchWeatherForDate;
+window.validateLocationFormat = validateLocationFormat;
+
+// 날짜 정규화 함수
+function normalizeDate(dateInput) {
+    console.log(`[Debug] normalizeDate 함수 호출됨 - 입력값: ${dateInput}, 타입: ${typeof dateInput}`);
+    
+    try {
+        // 이미 YYYY-MM-DD 형식이면 그대로 반환
+        if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+            console.log(`[Debug] 이미 정규화된 형식: ${dateInput}`);
+            return dateInput;
+        }
+        
+        // Date 객체면 변환
+        let date;
+        if (dateInput instanceof Date) {
+            date = dateInput;
+        } else {
+            date = new Date(dateInput);
+        }
+        
+        // 유효한 날짜인지 확인
+        if (isNaN(date.getTime())) {
+            console.error(`[Debug] 유효하지 않은 날짜 입력: ${dateInput}`);
+            return null;
+        }
+        
+        // YYYY-MM-DD 형식으로 반환
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const normalized = `${year}-${month}-${day}`;
+        
+        console.log(`[Debug] 정규화된 날짜: ${normalized}`);
+        return normalized;
+    } catch (error) {
+        console.error(`[Debug] 날짜 정규화 중 오류 발생: ${error}`, error);
+        return null;
+    }
+}
+
+// 장소 입력 형식 검증 함수 - 임시로 모든 값 허용
+function validateLocationFormat(location) {
+    // 임시: 모든 입력 허용 (비어있지만 않으면 됨)
+    return location != null && location.trim().length > 0;
+    
+    // 원래 검증 로직은 주석 처리
+    /*
+    // 한국 주소 형식 검증
+    // 구 또는 동으로 끝나는 주소 패턴
+    const districtPattern = /구$/; // 강남구, 서초구 등
+    const dongPattern = /동$/;     // 역삼동, 삼성동 등
+    const roPattern = /로$/;       // 테헤란로, 강남대로 등 
+    const streetPattern = /길$/;   // 삼성로8길 등
+    
+    // 주소에 한글이 포함되어 있고, 구/동/로/길로 끝나는지 검사
+    return (
+        /[가-힣]/.test(location) && 
+        (districtPattern.test(location) || 
+         dongPattern.test(location) || 
+         roPattern.test(location) || 
+         streetPattern.test(location))
+    );
+    */
+}
+
+// 날씨 상태를 이모티콘으로 변환
+function mapWeatherConditionToIcon(condition) {
+    // 한국 기상청 날씨 코드에 따른 아이콘 매핑
+    const weatherIcons = {
+        '맑음': '☀️',
+        '구름조금': '🌤️',
+        '구름많음': '⛅',
+        '흐림': '☁️',
+        '비': '🌧️',
+        '눈': '❄️',
+        '비/눈': '🌨️',
+        '소나기': '🌦️',
+        '안개': '🌫️',
+        '번개': '⚡',
+        '폭우': '🌊',
+        '황사': '😷',
+        '미세먼지': '😷'
+    };
+    
+    // PTY 코드에 따른 아이콘 매핑
+    const ptyIcons = {
+        '0': '☀️', // 맑음
+        '1': '🌧️', // 비
+        '2': '🌨️', // 비/눈
+        '3': '❄️', // 눈
+        '4': '🌧️'  // 소나기
+    };
+    
+    // 일기 조건에 따른 아이콘 매핑
+    const conditionIcons = {
+        'clear': '☀️', 
+        'sunny': '☀️',
+        'partly_cloudy': '🌤️',
+        'partly cloudy': '🌤️',
+        'mostly_cloudy': '⛅',
+        'mostly cloudy': '⛅',
+        'cloudy': '☁️',
+        'overcast': '☁️',
+        'rain': '🌧️',
+        'rainy': '🌧️',
+        'snow': '❄️',
+        'snowy': '❄️',
+        'sleet': '🌨️',
+        'shower': '🌦️',
+        'fog': '🌫️',
+        'mist': '🌫️',
+        'haze': '🌫️',
+        'thunderstorm': '⚡',
+        'storm': '⚡',
+        'dusty': '😷'
+    };
+    
+    if (typeof condition === 'string') {
+        // 먼저 한글 매핑 확인
+        if (weatherIcons[condition]) {
+            return weatherIcons[condition];
+        }
+        
+        // 영어 매핑 확인 (소문자로 변환하여 비교)
+        const lowerCondition = condition.toLowerCase();
+        for (const [key, value] of Object.entries(conditionIcons)) {
+            if (lowerCondition.includes(key)) {
+                return value;
             }
-        };
+        }
         
-        // 전역 함수로 명시적 등록 (파일 끝에 추가)
-        window.saveScheduleToDB = saveScheduleToDB;
-        window.submitSchedule = submitSchedule;
-        window.deleteSchedule = deleteSchedule;
-        window.fetchWeatherForDate = fetchWeatherForDate;
-        window.validateLocationFormat = validateLocationFormat;
+        return '🌤️'; // 기본 아이콘
+    } else if (typeof condition === 'number' || !isNaN(parseInt(condition))) {
+        return ptyIcons[condition.toString()] || '🌤️';
+    }
+    
+    return '🌤️'; // 기본 아이콘
+}
+
+// 추천된 장소/이벤트 불러오기 함수
+async function loadRecommendedPlaces(date) {
+    try {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            return;
+        }
         
-        // 날짜 정규화 함수 - 다양한 형식을 YYYY-MM-DD로 통일
-        function normalizeDate(dateInput) {
-            if (!dateInput) return null;
+        // 날짜 정규화
+        const normalizedDate = normalizeDate(date);
+        if (!normalizedDate) return;
+        
+        // 추천된 장소 목록 가져오기
+        const response = await fetch(`${BACKEND_BASE_URL}/calendar/recommended-places/?date=${normalizedDate}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            console.error('추천된 장소를 불러오는데 실패했습니다.');
+            return;
+        }
+        
+        const data = await response.json();
+        const recommendedPlaces = Array.isArray(data) ? data : [];
+        
+        // 추천된 장소/이벤트 표시
+        displayRecommendedPlaces(recommendedPlaces);
+        
+    } catch (error) {
+        console.error('추천된 장소 로드 중 오류:', error);
+    }
+}
+
+// 추천된 장소/이벤트 표시 함수
+function displayRecommendedPlaces(places) {
+    console.log('[Debug] displayRecommendedPlaces 함수 호출됨');
+    console.log('[Debug] 추천된 장소 응답 상태:', places ? '데이터 있음' : '데이터 없음');
+    console.log('[Debug] 추천된 장소 데이터:', places);
+    
+    const container = document.getElementById('recommended-places-list');
+    if (!container) {
+        console.error('[Debug] recommended-places-list 컨테이너를 찾을 수 없습니다.');
+        return;
+    }
+    
+    // 컨테이너 초기화
+    container.innerHTML = '';
+    
+    // 섹션 헤더 요소 선택
+    const sectionHeader = document.querySelector('.recommended-places-header');
+    if (!sectionHeader) {
+        console.warn('[Debug] .recommended-places-header 요소를 찾을 수 없습니다.');
+    }
+    
+    // 추천 장소가 없는 경우
+    if (!places || places.length === 0) {
+        console.log('[Debug] 표시할 추천 장소가 없습니다.');
+        
+        if (sectionHeader) {
+            sectionHeader.textContent = '추천된 장소';
+        }
+        
+        const noRecommendation = document.createElement('div');
+        noRecommendation.className = 'no-recommendations';
+        noRecommendation.textContent = '추천된 장소가 없습니다.';
+        container.appendChild(noRecommendation);
+        return;
+    }
+    
+    if (sectionHeader) {
+        sectionHeader.textContent = `추천된 장소`;
+        sectionHeader.style.color = '#007bff';
+    }
+    
+    // 각 추천 장소/이벤트에 대한 UI 요소 생성
+    places.forEach((place, index) => {
+        console.log(`[Debug] 장소 #${index + 1} 처리 중: ${place.place_name}`);
+        console.log(`[Debug] 장소 타입: ${place.place_type}, 데이터:`, place);
+        
+        const placeItem = document.createElement('div');
+        placeItem.className = 'recommended-item';
+        placeItem.dataset.id = place.id;
+        
+        // 헤더 부분 (이름과 토글 버튼)
+        const header = document.createElement('div');
+        header.className = 'recommended-item-header';
+        
+        const name = document.createElement('div');
+        name.className = 'recommended-item-name';
+        name.textContent = place.place_name;
+        header.appendChild(name);
+        
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'recommended-item-toggle';
+        toggleBtn.innerHTML = '▼';
+        toggleBtn.setAttribute('aria-label', '상세 정보 토글');
+        header.appendChild(toggleBtn);
+        
+        placeItem.appendChild(header);
+        
+        // 상세 정보 영역
+        const details = document.createElement('div');
+        details.className = 'recommended-item-details';
+        
+        // 장소/이벤트 유형에 따라 다른 정보 표시
+        const isEvent = place.place_type === 'event';
+        
+        if (isEvent) {
+            // 이벤트인 경우: 일시, 장소만 표시 (추천 이유 제거)
+            if (place.event_date && place.event_date !== '정보 없음') {
+                addDetailRow(details, '일시', place.event_date);
+            }
             
-            try {
-                // 이미 YYYY-MM-DD 형식이면 그대로 반환
-                if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
-                    return dateInput;
-                }
-                
-                let date;
-                
-                // 문자열 형식 처리
-                if (typeof dateInput === 'string') {
-                    // ISO 형식 (YYYY-MM-DDT00:00:00) 처리
-                    if (dateInput.includes('T')) {
-                        dateInput = dateInput.split('T')[0];
-                        
-                        // 이미 YYYY-MM-DD 형식이면 그대로 반환
-                        if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
-                            return dateInput;
-                        }
-                    }
-                    
-                    // YYYYMMDD 형식
-                    if (/^\d{8}$/.test(dateInput)) {
-                        const year = dateInput.substring(0, 4);
-                        const month = dateInput.substring(4, 6);
-                        const day = dateInput.substring(6, 8);
-                        return `${year}-${month}-${day}`;
-                    }
-                    // YYYY-MM-DD 형식 (하이픈 포함)
-                    else if (dateInput.includes('-')) {
-                        const parts = dateInput.split('-');
-                        if (parts.length === 3) {
-                            const year = parts[0];
-                            const month = parts[1].padStart(2, '0');
-                            const day = parts[2].padStart(2, '0');
-                            return `${year}-${month}-${day}`;
-                        }
-                    }
-                    
-                    // 기타 형식 (Date 생성자로 파싱 시도)
-                    date = new Date(dateInput);
-                }
-                // Date 객체 처리
-                else if (dateInput instanceof Date) {
-                    date = dateInput;
-                }
-                // 숫자 형식 (타임스탬프)
-                else if (typeof dateInput === 'number') {
-                    date = new Date(dateInput);
-                }
-                // 객체 형식 (예: {year: 2023, month: 5, day: 15})
-                else if (typeof dateInput === 'object' && dateInput !== null) {
-                    if ('year' in dateInput && 'month' in dateInput && 'day' in dateInput) {
-                        date = new Date(dateInput.year, dateInput.month - 1, dateInput.day);
-                    } else if ('date' in dateInput) {
-                        // 재귀적으로 date 속성 처리
-                        return normalizeDate(dateInput.date);
-                    } else {
-                        return null;
-                    }
+            if (place.place_location && place.place_location !== '정보 없음') {
+                addDetailRow(details, '장소', place.place_location);
+            }
+            
+            // 추천 이유와 추가 정보는 표시하지 않음 (사용자 요청에 따라)
+            
+        } else {
+            // 일반 장소인 경우: 위치만 표시 (추가 정보 제거)
+            if (place.place_location && place.place_location !== '정보 없음') {
+                addDetailRow(details, '위치', place.place_location);
+            }
+            
+            // 추천 이유와 추가 정보는 표시하지 않음 (사용자 요청에 따라)
+            
+            // URL 링크도 표시하지 않음 (사용자 요청에 따라)
+        }
+        
+        // 삭제 버튼 추가
+        const actions = document.createElement('div');
+        actions.className = 'recommended-item-actions';
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-recommendation';
+        removeBtn.textContent = '삭제';
+        removeBtn.setAttribute('aria-label', '추천 장소 삭제');
+        actions.appendChild(removeBtn);
+        
+        details.appendChild(actions);
+        placeItem.appendChild(details);
+        
+        // 기본적으로 상세 정보 표시
+        details.classList.add('visible');
+        toggleBtn.classList.add('expanded');
+        toggleBtn.innerHTML = '▲';
+        
+        // 이벤트 리스너 추가
+        
+        // 헤더 클릭 시 상세 정보 토글
+        header.addEventListener('click', () => {
+            details.classList.toggle('visible');
+            toggleBtn.classList.toggle('expanded');
+            toggleBtn.innerHTML = details.classList.contains('visible') ? '▲' : '▼';
+        });
+        
+        // 삭제 버튼 클릭 시 추천 장소 삭제
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeRecommendedPlace(place.id, placeItem);
+        });
+        
+        // 컨테이너에 추가
+        container.appendChild(placeItem);
+    });
+    
+    console.log('[Debug] 모든 추천 장소 표시 완료');
+}
+
+// 상세 정보 행 추가 헬퍼 함수
+function addDetailRow(container, label, value) {
+    const detailRow = document.createElement('div');
+    detailRow.className = 'recommended-item-detail';
+    
+    const labelEl = document.createElement('strong');
+    labelEl.textContent = label + ':';
+    detailRow.appendChild(labelEl);
+    
+    // 값이 링크처럼 보이는 경우 (http:// 또는 https://)
+    if (typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'))) {
+        const linkEl = document.createElement('a');
+        linkEl.href = value;
+        linkEl.textContent = '바로가기';
+        linkEl.target = '_blank';
+        linkEl.rel = 'noopener noreferrer';
+        detailRow.appendChild(linkEl);
+    } else {
+        const valueEl = document.createElement('span');
+        valueEl.textContent = value;
+        
+        // 레이블 유형에 따라 CSS 클래스 추가
+        if (label === '일시') {
+            valueEl.classList.add('event-date');
+        } else if (label === '위치' || label === '장소') {
+            valueEl.classList.add('location');
+        } else if (label === '추천 이유') {
+            valueEl.classList.add('reason');
+        }
+        
+        detailRow.appendChild(valueEl);
+    }
+    
+    container.appendChild(detailRow);
+}
+
+// 추천된 장소 삭제 함수
+async function removeRecommendedPlace(id, element) {
+    if (!confirm('이 추천 장소를 목록에서 삭제하시겠습니까? (일정은 그대로 유지됩니다)')) {
+        return;
+    }
+    
+    try {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            alert('로그인이 필요한 기능입니다.');
+            return;
+        }
+        
+        const response = await fetch(`${BACKEND_BASE_URL}/calendar/recommended-places/${id}/`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (response.ok) {
+            // UI에서 요소 제거
+            element.remove();
+            
+            // 성공 메시지 표시
+            showSuccessMessage('추천 장소가 목록에서 삭제되었습니다.');
+            
+            // 추천 장소 수 업데이트
+            const sectionHeader = document.querySelector('.recommended-places-header');
+            const remainingItems = document.querySelectorAll('.recommended-item').length;
+            
+            if (sectionHeader) {
+                if (remainingItems > 0) {
+                    sectionHeader.textContent = `추천된 장소`;
                 } else {
-                    return null;
-                }
-                
-                // 유효한 날짜인지 확인
-                if (isNaN(date.getTime())) {
-                    return null;
-                }
-                
-                // YYYY-MM-DD 형식으로 변환 (로컬 시간대 기준)
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                
-                const normalized = `${year}-${month}-${day}`;
-                
-                return normalized;
-            } catch (error) {
-                return null;
-            }
-        }
-        
-        // 장소 입력 형식 검증 함수 - 구나 동 단위 제한 없이 아무 값이나 입력 가능
-        function validateLocationFormat(location) {
-            // 빈 값만 체크 (최소 1글자 이상 입력 필요)
-            return location != null && location.trim().length > 0;
-        }
-        
-        // 날씨 상태를 이모티콘으로 변환
-        function mapWeatherConditionToIcon(condition) {
-            // 한국 기상청 날씨 코드에 따른 아이콘 매핑
-            const weatherIcons = {
-                '맑음': '☀️',
-                '구름조금': '🌤️',
-                '구름많음': '⛅',
-                '흐림': '☁️',
-                '비': '🌧️',
-                '눈': '❄️',
-                '비/눈': '🌨️',
-                '소나기': '🌦️',
-                '안개': '🌫️',
-                '번개': '⚡',
-                '폭풍': '🌪️'
-            };
-            
-            // 숫자 코드(pty)에 따른 아이콘 매핑
-            const ptyIcons = {
-                '0': '☀️', // 맑음
-                '1': '🌧️', // 비
-                '2': '🌨️', // 비/눈
-                '3': '❄️', // 눈
-                '4': '🌦️'  // 소나기
-            };
-            
-            // 영어 날씨 텍스트에 대한 매핑 추가
-            const englishToIcon = {
-                'clear': '☀️',
-                'sunny': '☀️',
-                'partly cloudy': '🌤️',
-                'mostly cloudy': '⛅',
-                'cloudy': '☁️',
-                'rain': '🌧️',
-                'snow': '❄️',
-                'sleet': '🌨️',
-                'shower': '🌦️',
-                'fog': '🌫️',
-                'mist': '🌫️',
-                'haze': '🌫️',
-                'thunderstorm': '⚡',
-                'storm': '🌪️'
-            };
-            
-            if (typeof condition === 'string') {
-                // 먼저 한글 매핑 확인
-                if (weatherIcons[condition]) {
-                    return weatherIcons[condition];
-                }
-                
-                // 영어 매핑 확인 (소문자로 변환하여 비교)
-                const lowerCondition = condition.toLowerCase();
-                for (const [key, value] of Object.entries(englishToIcon)) {
-                    if (lowerCondition.includes(key)) {
-                        return value;
+                    sectionHeader.textContent = '추천된 장소';
+                    sectionHeader.style.color = '';
+                    
+                    const container = document.getElementById('recommended-places-list');
+                    if (container) {
+                        const noRecommendation = document.createElement('div');
+                        noRecommendation.className = 'no-recommendations';
+                        noRecommendation.textContent = '추천된 장소가 없습니다.';
+                        container.appendChild(noRecommendation);
                     }
                 }
-                
-                return '🌤️'; // 기본 아이콘
-            } else if (typeof condition === 'number' || !isNaN(parseInt(condition))) {
-                return ptyIcons[condition.toString()] || '🌤️';
             }
-            
-            return '🌤️'; // 기본 아이콘
+        } else {
+            throw new Error('응답 오류: ' + response.status);
         }
+    } catch (error) {
+        console.error('추천 장소 삭제 중 오류:', error);
+        showErrorMessage('장소 삭제 중 오류가 발생했습니다.');
+    }
+}

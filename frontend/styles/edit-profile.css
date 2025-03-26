@@ -28,9 +28,14 @@ header {
     border-bottom: 1px solid #eee;
 }
 
-.logo {
-    font-size: 24px;
-    font-weight: 700;
+.logo-text {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #333;
+    letter-spacing: -0.5px;
+}
+
+.logo .highlight {
     color: #87CEEB;
 }
 

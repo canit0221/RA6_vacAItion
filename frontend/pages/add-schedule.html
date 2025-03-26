@@ -12,7 +12,7 @@
         <header>
             <div class="logo">
                 <img src="../logo.png" alt="VacAItion" class="logo-img">
-                <span class="logo-text">vacAItion</span>
+                <span class="logo-text">vac<span class="highlight">AI</span>tion</span>
             </div>
             <nav class="main-nav">
                 <ul>
@@ -34,10 +34,19 @@
                     <div class="calendar-link-container">
                         <button class="calendar-btn" onclick="window.location.href='../index.html'">캘린더로 돌아가기</button>
                     </div>
+                    
+                    <!-- 추천된 장소/이벤트 표시 섹션 추가 -->
+                    <div class="recommended-places-container">
+                        <h4 class="recommended-places-header">추천된 장소</h4>
+                        <div id="recommended-places-list" class="recommended-places-list">
+                            <!-- 추천된 장소/이벤트가 JavaScript로 동적 추가됩니다 -->
+                            <div class="no-recommendations">추천된 장소가 없습니다.</div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="schedule-details">
-                    <h3 class="selected-date">2025.04.05 토요일 ⭐</h3>
+                    <h3 class="selected-date">2025.04.05 토요일 ☀️</h3>
                     <div class="form-group">
                         <label>Where?</label>
                         <input type="text" id="location" placeholder="구 또는 동 단위로 입력 (예: 강남구, 잠실6동)" class="form-control" oninput="validateLocationInput(this)" />
