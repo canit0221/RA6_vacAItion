@@ -39,6 +39,10 @@ header {
     margin-right: 10px;
 }
 
+.logo .highlight {
+    color: #87CEEB;
+}
+
 .logo-text {
     font-size: 1.8em;
     font-weight: bold;

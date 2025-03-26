@@ -167,7 +167,7 @@ header {
 .day.selected {
     background-color: #f5f6f700;
     color: white;
-    border-color: #f4ffff00;
+    border-color: #333;
 }
 
 /* 날씨 아이콘 스타일 */
