@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (deleteAccountsLink) {
         deleteAccountsLink.addEventListener('click', (e) => {
             e.preventDefault();
-            window.location.href = '../pages/delete-accounts.html';
+            window.location.href = '../pages/delete-account.html';
         });
     }
 });

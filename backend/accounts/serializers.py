@@ -5,6 +5,8 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from rest_framework.validators import UniqueValidator
 from django.utils.translation import gettext as _
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 
 User = get_user_model()
 
@@ -21,7 +23,14 @@ class CreateUserSerializer(serializers.ModelSerializer):
         model = User
         fields = ["nickname", "email", "username", "password", "user_address"]
         extra_kwargs = {
-            "password": {"write_only": True},
+            "password": {
+                "write_only": True,
+                "required": True,
+                "error_messages": {
+                    "blank": "비밀번호를 입력해 주세요.",
+                    "required": "비밀번호는 필수 항목입니다.",
+                },
+            },
             "email": {
                 "error_messages": {
                     "invalid": "올바른 이메일 주소를 입력해 주세요.",
@@ -60,6 +69,33 @@ class CreateUserSerializer(serializers.ModelSerializer):
                 ],
             },
         }
+
+    def validate_password(self, value):
+        """
+        비밀번호 검증을 수행합니다. 길이에 따른 한국어 오류 메시지를 반환합니다.
+        """
+        if len(value) < 8:
+            raise serializers.ValidationError("비밀번호는 최소 8자 이상이어야 합니다.")
+
+        try:
+            validate_password(value)
+        except ValidationError as e:
+            # 영문 오류 메시지를 한국어로 변환
+            error_messages = []
+            for error in e.error_list:
+                if "password is too common" in str(error):
+                    error_messages.append("너무 흔한 비밀번호입니다.")
+                elif "password is entirely numeric" in str(error):
+                    error_messages.append("비밀번호는 숫자로만 구성될 수 없습니다.")
+                elif "password is too similar to the" in str(error):
+                    error_messages.append("비밀번호가 개인정보와 너무 유사합니다.")
+                else:
+                    error_messages.append(str(error))
+
+            if error_messages:
+                raise serializers.ValidationError(error_messages)
+
+        return value
 
     def create(self, validated_data):
         user = User(

@@ -10,6 +10,7 @@ class GraphState(TypedDict):
     query_info: Dict
     is_event: bool
     answer: str
+    session_id: int  # 세션 ID 필드 추가
 
 
 # 토큰화 함수

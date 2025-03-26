@@ -16,6 +16,17 @@ _general_vectorstore = None
 _event_docs = None
 _general_docs = None
 _embeddings = None
+import logging
+
+# 로거 설정
+logger = logging.getLogger(__name__)
+
+# 싱글톤 벡터스토어 인스턴스 저장
+_event_vectorstore = None
+_general_vectorstore = None
+_event_docs = None
+_general_docs = None
+_embeddings = None
 
 
 # Django 설정 임포트 방식 변경
