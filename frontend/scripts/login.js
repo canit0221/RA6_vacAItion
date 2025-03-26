@@ -82,6 +82,17 @@ function handleGoogleLoginCallback() {
     const refreshToken = urlParams.get('refresh');
     const username = urlParams.get('username');
     
+    // 추가 정보 입력이 필요한지 확인하는 파라미터 추가
+    const needAdditionalInfo = urlParams.get('need_additional_info');
+    const tempData = urlParams.get('temp_data');
+    
+    // 추가 정보 입력이 필요한 경우
+    if (needAdditionalInfo === 'true' && tempData) {
+        // 추가 정보 입력 페이지로 리다이렉트
+        window.location.href = `./google-additional-info.html?data=${tempData}`;
+        return;
+    }
+    
     if (accessToken && refreshToken && username) {
         localStorage.setItem('access_token', accessToken);
         localStorage.setItem('refresh_token', refreshToken);
