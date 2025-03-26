@@ -462,18 +462,7 @@ class Calendar {
                 dayElement.classList.add('today');
             }
             
-            // 날짜 표시 강화 - 날짜 텍스트를 넣을 별도의 span 요소 생성
-            const dateSpan = document.createElement('span');
-            dateSpan.className = 'date-number';
-            dateSpan.textContent = day;
-            dateSpan.style.fontWeight = 'bold'; // 글자 굵게 표시
-            dateSpan.style.fontSize = '16px'; // 글자 크기 조정
-            dateSpan.style.color = '#000'; // 글자 색상 검정색으로 설정
-            dateSpan.style.position = 'relative'; // 상대 위치 설정
-            dateSpan.style.zIndex = '2'; // 다른 요소보다 앞에 표시
-            
-            // 기존 코드를 대체하지 않고 추가
-            dayElement.appendChild(dateSpan);
+            dayElement.textContent = day;
             dayElement.setAttribute('data-date', day);
 
             // Add click event
