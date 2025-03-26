@@ -157,9 +157,35 @@ def google_callback(request):
             # 랜덤 사용자 이름 생성 (이메일 주소에서 @ 앞부분 + 랜덤 숫자)
             import uuid
 
-            username = email.split("@")[0] + str(uuid.uuid4())[:8]
+            username = email.split("@")[0]
             nickname = username  # 기본 닉네임으로 사용자 이름 사용
 
+            # 일단 임시 세션에 필요한 데이터를 저장
+            if custom_redirect_uri:
+                # 추가 정보 입력 페이지로 리다이렉트 (완전한 사용자 생성은 아직 하지 않음)
+                # 필요한 데이터를 안전하게 인코딩하여 전달
+                import base64
+                import json
+
+                temp_user_data = {
+                    "username": username,
+                    "email": email,
+                    "google_id": profile_json.get("id"),
+                    "extra_data": profile_json,
+                    "given_name": profile_json.get("given_name", ""),
+                    "family_name": profile_json.get("family_name", ""),
+                }
+
+                # 추가 정보를 base64로 인코딩하여 전달
+                encoded_data = base64.urlsafe_b64encode(
+                    json.dumps(temp_user_data).encode()
+                ).decode()
+
+                # 추가 정보 입력 페이지로 리다이렉트
+                additional_info_url = f"https://ra6vacaition.vercel.app/pages/google-additional-info.html?data={encoded_data}"
+                return redirect(additional_info_url)
+
+            # 리다이렉트 URI가 없는 경우 기존 방식대로 사용자 생성
             # 새 사용자 생성
             user = User.objects.create(
                 username=username,
@@ -272,37 +298,40 @@ class GoogleLogin(APIView):
             except User.DoesNotExist:
                 # 랜덤 사용자 이름 생성 (이메일 주소에서 @ 앞부분 + 랜덤 숫자)
                 import uuid
+                import base64
+                import json
 
                 username = email.split("@")[0] + str(uuid.uuid4())[:8]
                 nickname = username  # 기본 닉네임으로 사용자 이름 사용
                 print(f"새 사용자 생성 시도: username={username}, nickname={nickname}")
 
-                # 새 사용자 생성
-                try:
-                    user = User.objects.create(
-                        username=username,
-                        email=email,
-                        nickname=nickname,
-                        first_name=profile_json.get("given_name", ""),  # 이름 추가
-                        last_name=profile_json.get("family_name", ""),  # 성 추가
-                    )
-                    user.set_unusable_password()  # 비밀번호 없이 소셜 로그인만 가능하도록 설정
-                    user.save()
-                    print(f"새 사용자 생성 성공: {user.username}")
+                # 추가 정보 입력 페이지로 리다이렉트하기 위한 데이터 준비
+                temp_user_data = {
+                    "username": username,
+                    "email": email,
+                    "google_id": profile_json.get("id"),
+                    "extra_data": profile_json,
+                    "given_name": profile_json.get("given_name", ""),
+                    "family_name": profile_json.get("family_name", ""),
+                }
 
-                    # 소셜 계정 연결
-                    SocialAccount.objects.create(
-                        user=user,
-                        provider="google",
-                        uid=profile_json.get("id"),  # Google 사용자 ID
-                        extra_data=profile_json,
-                    )
-                except Exception as e:
-                    print(f"사용자 생성 오류: {str(e)}")
-                    return Response(
-                        {"success": False, "message": f"사용자 생성 중 오류: {str(e)}"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+                # 추가 정보를 base64로 인코딩
+                encoded_data = base64.urlsafe_b64encode(
+                    json.dumps(temp_user_data).encode()
+                ).decode()
+
+                # 응답 데이터 구성: 추가 정보 입력이 필요함을 알림
+                return Response(
+                    {
+                        "success": True,
+                        "message": "추가 정보 입력이 필요합니다",
+                        "need_additional_info": True,
+                        "temp_data": encoded_data,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+                # 기존 계정 생성 코드는 추가 정보 입력 후에 실행될 것이므로 여기서는 실행하지 않음
 
             # JWT 토큰 생성
             try:
@@ -709,4 +738,82 @@ class ResetPasswordView(APIView):
                     "message": "유효하지 않은 비밀번호 재설정 링크입니다.",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class GoogleAdditionalInfoView(APIView):
+    """
+    구글 로그인 후 추가 정보(닉네임, 주소)를 입력받아 사용자 생성을 완료하는 API
+    """
+
+    def post(self, request):
+        # 클라이언트로부터 받은 데이터
+        encoded_data = request.data.get("encoded_data")
+        nickname = request.data.get("nickname")
+        user_address = request.data.get("user_address", "")  # 주소는 선택사항
+
+        if not encoded_data or not nickname:
+            return Response(
+                {"success": False, "message": "필수 정보가 누락되었습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # 임시 데이터 디코딩
+            import base64
+            import json
+
+            temp_user_data = json.loads(
+                base64.urlsafe_b64decode(encoded_data.encode()).decode()
+            )
+
+            # 닉네임 중복 확인
+            User = get_user_model()
+            if User.objects.filter(nickname=nickname).exists():
+                return Response(
+                    {"success": False, "message": "이미 사용 중인 닉네임입니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 사용자 생성
+            user = User.objects.create(
+                username=temp_user_data.get("username"),
+                email=temp_user_data.get("email"),
+                nickname=nickname,
+                user_address=user_address,
+                first_name=temp_user_data.get("given_name", ""),
+                last_name=temp_user_data.get("family_name", ""),
+            )
+            user.set_unusable_password()  # 비밀번호 없이 소셜 로그인만 가능하도록 설정
+            user.save()
+
+            # 소셜 계정 연결
+            SocialAccount.objects.create(
+                user=user,
+                provider="google",
+                uid=temp_user_data.get("google_id"),
+                extra_data=temp_user_data.get("extra_data", {}),
+            )
+
+            # JWT 토큰 생성
+            refresh = RefreshToken.for_user(user)
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "회원가입이 완료되었습니다.",
+                    "username": user.username,
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": f"사용자 생성 중 오류가 발생했습니다: {str(e)}",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

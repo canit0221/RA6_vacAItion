@@ -22,4 +22,10 @@ urlpatterns = [
         views.GoogleLogin.as_view(),
         name="google_login_todjango",
     ),
+    # 구글 추가 정보 처리 URL 추가
+    path(
+        "accounts/google/additional-info/",
+        views.GoogleAdditionalInfoView.as_view(),
+        name="google_additional_info",
+    ),
 ]

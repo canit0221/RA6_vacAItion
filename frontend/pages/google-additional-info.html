@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vacAItion - 추가 정보 입력</title>
+    <style>
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+        }
+        
+        .additional-info-box {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+        }
+        
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+        
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 12px 12px 12px 40px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .input-group input:focus {
+            border-color: #87CEEB;
+            outline: none;
+        }
+        
+        .input-icon {
+            position: absolute;
+            left: 10px;
+            top: 35px;
+            color: #888;
+        }
+        
+        .required {
+            color: #ff4757;
+        }
+        
+        .create-btn {
+            width: 100%;
+            background-color: #87CEEB;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 10px;
+        }
+        
+        .create-btn:hover {
+            background-color: #5CACEE;
+        }
+        
+        .error-message {
+            color: #ff4757;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="additional-info-box">
+            <h1 class="title">추가 정보 입력</h1>
+            <p class="subtitle">구글 로그인을 완료하기 위해 추가 정보를 입력해주세요.</p>
+            
+            <form id="additionalInfoForm">
+                <div class="input-group">
+                    <label>닉네임 <span class="required">*</span></label>
+                    <span class="input-icon">👤</span>
+                    <input type="text" id="nickname" placeholder="닉네임을 입력하세요" required>
+                    <p id="nickname-error" class="error-message">이미 사용 중인 닉네임입니다.</p>
+                </div>
+                <div class="input-group">
+                    <label>지역 (선택사항)</label>
+                    <span class="input-icon">📍</span>
+                    <input type="text" id="user_address" placeholder="거주 지역을 입력하세요">
+                </div>
+                
+                <button type="submit" class="create-btn">완료</button>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('google-additional-info.js loaded');
+            
+            const additionalInfoForm = document.getElementById('additionalInfoForm');
+            const BACKEND_BASE_URL = 'https://vacaition.life';
+            
+            // URL에서 인코딩된 임시 데이터 가져오기
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedData = urlParams.get('data');
+            
+            if (!encodedData) {
+                alert('잘못된 접근입니다. 로그인 페이지로 이동합니다.');
+                window.location.href = './login.html';
+                return;
+            }
+            
+            additionalInfoForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const nickname = document.getElementById('nickname').value;
+                const userAddress = document.getElementById('user_address').value;
+                
+                // 닉네임은 필수값 검사
+                if (!nickname) {
+                    document.getElementById('nickname-error').textContent = '닉네임을 입력해주세요.';
+                    document.getElementById('nickname-error').style.display = 'block';
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`${BACKEND_BASE_URL}/accounts/google/additional-info/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            encoded_data: encodedData,
+                            nickname: nickname,
+                            user_address: userAddress
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        // 토큰을 로컬 스토리지에 저장
+                        localStorage.setItem('access_token', data.access);
+                        localStorage.setItem('refresh_token', data.refresh);
+                        localStorage.setItem('username', data.username);
+                        
+                        // 메인 페이지로 이동
+                        window.location.href = '../index.html';
+                    } else {
+                        // 닉네임 중복 에러 처리
+                        if (data.message && data.message.includes('닉네임')) {
+                            document.getElementById('nickname-error').textContent = data.message;
+                            document.getElementById('nickname-error').style.display = 'block';
+                        } else {
+                            alert(data.message || '회원가입을 완료할 수 없습니다.');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('서버와의 통신 중 오류가 발생했습니다.');
+                }
+            });
+        });
+    </script>
+</body>
+</html> 
