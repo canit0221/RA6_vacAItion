@@ -384,4 +384,188 @@ main {
     .chat-main {
         height: calc(100% - 150px);
     }
+}
+
+/* 추천 장소 추가 버튼 스타일 */
+.add-to-schedule-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 50%;
+    background-color: #ff6f00;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+    margin-left: 6px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.add-to-schedule-btn:hover {
+    background-color: #ff9100;
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+.add-to-schedule-btn:active {
+    background-color: #e65100;
+    transform: scale(0.95);
+}
+
+/* 날짜 선택 모달 스타일 */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    overflow: auto;
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    position: relative;
+    background-color: #fff;
+    margin: 10% auto;
+    padding: 25px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 450px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    animation: fadeIn 0.3s;
+    transition: all 0.3s;
+}
+
+.close-button {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    color: #888;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: #333;
+}
+
+.modal h3 {
+    margin-bottom: 20px;
+    font-size: 18px;
+    color: #333;
+    text-align: center;
+}
+
+/* 장소 정보 스타일 */
+.place-info {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin-bottom: 15px;
+    border-left: 4px solid #87CEEB;
+}
+
+.place-info p {
+    margin: 8px 0;
+    line-height: 1.5;
+    font-size: 14px;
+}
+
+.place-info .place-name {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+#schedule-date {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    color: #333;
+    background-color: #f9f9f9;
+}
+
+.modal .btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    background-color: #87CEEB;
+    color: #fff;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    font-weight: 500;
+}
+
+.modal .btn:hover {
+    background-color: #5F9EA0;
+}
+
+/* 토스트 알림 메시지 */
+.toast-message {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    animation: slide-in 0.3s ease-out forwards;
+    max-width: 300px;
+}
+
+.toast-success {
+    background-color: #4CAF50;
+}
+
+.toast-error {
+    background-color: #F44336;
+}
+
+.toast-info {
+    background-color: #2196F3;
+}
+
+.toast-hide {
+    animation: slide-out 0.3s ease-in forwards;
+}
+
+@keyframes slide-in {
+    0% { transform: translateX(100%); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slide-out {
+    0% { transform: translateX(0); opacity: 1; }
+    100% { transform: translateX(100%); opacity: 0; }
+}
+
+/* 시스템 메시지 스타일 */
+.system-message {
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin: 10px auto;
+    max-width: 80%;
+    text-align: center;
+    font-style: italic;
+    color: #666;
+    font-size: 0.9em;
 } 
