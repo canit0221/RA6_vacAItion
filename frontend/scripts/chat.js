@@ -255,8 +255,34 @@ class ChatWebSocket {
             this.connectionStatus = 'connecting';
             console.log('WebSocket 연결 시도 중...');
             
-            const wsUrl = `ws://localhost:8000/ws/chat/${this.sessionId}/?token=${accessToken}`;
-            console.log('연결 URL:', wsUrl);
+            // 현재 페이지의 URL 파라미터를 가져옴
+            const urlParams = new URLSearchParams(window.location.search);
+            const dateParam = urlParams.get('date');
+            const locationParam = urlParams.get('location');
+            const companionParam = urlParams.get('companion');
+            
+            // WebSocket URL 생성 (기존 URL에 새 파라미터 추가)
+            let wsUrl = `ws://localhost:8000/ws/chat/${this.sessionId}/?token=${accessToken}`;
+            
+            // date 파라미터 추가
+            if (dateParam) {
+                wsUrl += `&date=${encodeURIComponent(dateParam)}`;
+                console.log('WebSocket URL에 date 파라미터 추가:', dateParam);
+            }
+            
+            // location 파라미터 추가
+            if (locationParam) {
+                wsUrl += `&location=${encodeURIComponent(locationParam)}`;
+                console.log('WebSocket URL에 location 파라미터 추가:', locationParam);
+            }
+            
+            // companion 파라미터 추가
+            if (companionParam) {
+                wsUrl += `&companion=${encodeURIComponent(companionParam)}`;
+                console.log('WebSocket URL에 companion 파라미터 추가:', companionParam);
+            }
+            
+            console.log('최종 WebSocket 연결 URL:', wsUrl);
             
             this.ws = new WebSocket(wsUrl);
             

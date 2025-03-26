@@ -5,6 +5,7 @@ from django.conf import settings  # settings import 추가
 import re
 import json
 import os
+from django.utils import timezone
 
 # Create your models here.
 class Chat(models.Model):
@@ -16,32 +17,38 @@ class Chat(models.Model):
 
 
 class ChatSession(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    title = models.CharField(max_length=200)
-    session_id = models.CharField(max_length=100, null=True, blank=True)  # null 허용
+    id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="chat_sessions")
+    title = models.CharField(max_length=255, default="새 채팅")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    # 세션별로 추천된 장소들을 저장하는 필드 추가
-    recommended_places = models.TextField(default='[]', blank=True)  # JSON 형식으로 저장
-
-    def __str__(self):
-        return f"{self.user.username}'s chat - {self.title}"
+    recommended_places = models.TextField(blank=True, null=True)
+    # 채팅 세션이 어느 날짜의 일정에 관련된 것인지 저장
+    date = models.DateField(default=timezone.now)
+    # URL 파라미터를 저장할 필드 추가
+    url_params = models.JSONField(blank=True, null=True)
+    
+    def add_recommended_place(self, place_identifier):
+        """추천한 장소 식별자를 저장하는 메서드"""
+        places = self.get_recommended_places()
+        if place_identifier not in places:
+            places.append(place_identifier)
+            self.recommended_places = json.dumps(places)
+            self.save()
+            return True
+        return False
     
     def get_recommended_places(self):
-        """추천된 장소들을 리스트로 반환"""
+        """추천한 장소 식별자 목록을 가져오는 메서드"""
+        if not self.recommended_places:
+            return []
         try:
             return json.loads(self.recommended_places)
         except:
             return []
-            
-    def add_recommended_place(self, place_name):
-        """새로운 장소를 추천 목록에 추가"""
-        places = self.get_recommended_places()
-        if place_name not in places:
-            places.append(place_name)
-            self.recommended_places = json.dumps(places)
-            self.save()
-        return places
+    
+    def __str__(self):
+        return f"{self.title} ({self.user.username}, {self.created_at.strftime('%Y-%m-%d %H:%M')})"
 
 
 class ChatMessage(models.Model):

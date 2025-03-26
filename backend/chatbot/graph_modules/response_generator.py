@@ -3,6 +3,87 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from .base import GraphState, format_documents, format_naver_results
 
+def extract_place_name_with_model(content, meta_title=""):
+    """
+    LLM을 활용하여 텍스트에서 장소명을 추출하는 함수
+    
+    Args:
+        content: 추출할 텍스트 내용
+        meta_title: 메타데이터에서 얻은 제목 (대체용)
+        
+    Returns:
+        추출한 장소명 또는 기본값
+    """
+    try:
+        # OpenAI API 키 가져오기
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            print("OpenAI API 키가 설정되지 않았습니다.")
+            # 기본값으로 사용하는 meta_title이 "장소 N" 형식인지 확인
+            if meta_title and (meta_title.startswith("장소 ") and meta_title[3:].isdigit()):
+                return "알 수 없는 장소"
+            return meta_title
+            
+        # 콘텐츠 길이 제한 (API 요청 크기 최적화)
+        text_to_analyze = content[:1500] if len(content) > 1500 else content
+        
+        # LLM 모델 초기화 - 가벼운 모델 사용
+        llm = ChatOpenAI(
+            model="o3-mini",
+            api_key=api_key
+        )
+        
+        # LLM에게 전달할 프롬프트
+        prompt = f"""
+        아래 텍스트는 식당, 카페, 관광지 등에 대한 설명입니다. 이 텍스트에서 정확한 장소/가게 이름만 추출해주세요.
+        
+        지침:
+        1. 장소명은 고유한 상호명, 가게명, 식당명, 카페명, 관광지명 등을 의미합니다.
+        2. "장소 1", "장소 2"와 같은 일반적인 명칭은 장소명이 아닙니다.
+        3. 특수문자를 포함한 정확한 장소명을 추출해주세요 (예: 카페 C.Through, 노티드 도넛).
+        4. 장소명에 지점명이 포함된 경우 함께 추출해주세요 (예: 스타벅스 강남점, 맥도날드 홍대점).
+        5. 텍스트 중 하나의 주요 장소명만 추출하세요. 여러 장소가 언급된 경우, 가장 중심이 되는 장소를 선택하세요.
+        
+        예시:
+        - "종묘떡볶이는 종로에서 유명한 맛집입니다" → "종묘떡볶이"
+        - "서울 종로구 종로 123번길에 위치한 백년토종삼계탕" → "백년토종삼계탕"
+        - "불당동 맛집 신사우물갈비 불당본점은 특별한 양념이 일품" → "신사우물갈비 불당본점"
+        - "연남동에 위치한 카페 노멀에서 브런치 메뉴 추천" → "카페 노멀"
+        - "장소 1, 장소 2처럼 일반적인 명칭" → "알 수 없음"
+        
+        텍스트: {text_to_analyze}
+        
+        장소명만 간결하게 답변해주세요. 장소명을 찾을 수 없으면 "알 수 없음"이라고 정확히 답변해주세요.
+        답변에는 설명이나 부가 정보 없이 장소명만 작성해주세요.
+        """
+        
+        # LLM 호출
+        response = llm.invoke(prompt).content
+        print(f"LLM이 추출한 장소명: {response}")
+        
+        # 응답 처리
+        place_name = response.strip()
+        
+        # "알 수 없음" 또는 비어있는 응답이면 메타데이터 제목 사용
+        if place_name == "알 수 없음" or not place_name:
+            # 기본값으로 사용하는 meta_title이 "장소 N" 형식인지 확인
+            if meta_title and (meta_title.startswith("장소 ") and meta_title[3:].isdigit()):
+                return "알 수 없는 장소"
+            return meta_title
+        
+        # "장소 N" 형식으로 반환된 경우 대체
+        if place_name.startswith("장소 ") and place_name[3:].isdigit():
+            return "알 수 없는 장소"
+            
+        return place_name
+            
+    except Exception as e:
+        print(f"장소명 추출 중 오류 발생: {e}")
+        # 기본값으로 사용하는 meta_title이 "장소 N" 형식인지 확인
+        if meta_title and (meta_title.startswith("장소 ") and meta_title[3:].isdigit()):
+            return "알 수 없는 장소"
+        return meta_title
+
 def response_generator(state: GraphState) -> GraphState:
     """응답 생성 노드
     
@@ -62,8 +143,7 @@ def response_generator(state: GraphState) -> GraphState:
         
         # OpenAI API를 사용하여 응답 생성
         llm = ChatOpenAI(
-            model="gpt-3.5-turbo-0125",
-            temperature=0.3,
+            model="o3-mini",
         )
         
         # 간소화된 프롬프트 템플릿
@@ -72,46 +152,6 @@ def response_generator(state: GraphState) -> GraphState:
         사용자의 질문과 검색 결과를 바탕으로 가장 적합한 장소 또는 이벤트를 추천해주세요.
         각 추천에는 장소 이름, 주소, 특징, 그리고 추천 이유를 포함해주세요.
         모든 응답은 한국어로 작성해야 합니다.
-        
-        <장소 정보 처리 지침>
-        1. 장소 이름은 검색 결과에서 원본 그대로 정확히 추출해야 합니다.
-           - 장소명을 자의적으로 변경하거나 철자를 바꾸지 마세요.
-        
-        2. 주소 정보가 "정보 없음"으로 표시된 경우:
-           - 장소 이름을 기반으로 실제로 있을 법한 주소를 추론하세요.
-           - "강남역점"이나 "서울대입구점"과 같이 지점명이 포함된 경우, 해당 지역의 주소를 포함하세요.
-           - "서울특별시 강남구"와 같이 일반적인 형태로 작성하되, 반드시 실제로 존재할 법한 주소여야 합니다.
-           - 특히 강남구, 서초구, 마포구 등의 장소가 많이 언급되면 그 지역의 주소를 사용하세요.
-        
-        3. URL 처리 방법:
-           - 검색 결과에 URL이 제공된 경우에만 그대로 사용하세요.
-           - URL이 "정보 없음"인 경우 블로그나 인스타그램 URL을 추측하지 말고 그대로 "정보 없음"으로 표시하세요.
-        
-        4. 일관성 유지:
-           - 모든 추천 장소는 동일한 형식과 정보 구조를 유지해야 합니다.
-           - 네이버 지도 기반 추천과 데이터베이스 기반 추천을 명확히 구분해 주세요.
-           - 필요하더라도 내용을 생략하거나 형식을 변경하지 말고, 일관된 형태를 유지하세요.
-        </장소 정보 처리 지침>
-        
-        <결과 일관성 유지 지침>
-        1. 모든 추천은 반드시 다음 형식을 따라야 합니다:
-           - 번호 이모티콘과 장소 이름 (굵게 표시)
-           - 위치 정보 (이모티콘과 함께 표시)
-           - 분류 정보 (이모티콘과 함께 표시)
-           - 추천 이유 (이모티콘과 함께 표시)
-           - 특징 (해당하는 경우, 이모티콘과 함께 표시)
-           - 참고 URL (이모티콘과 함께 표시)
-        
-        2. 절대 형식을 생략하거나 변경하지 마세요.
-           - 특정 정보가 없더라도 해당 항목 자체를 생략하지 말고, "정보 없음"이라고 표시하세요.
-           - 데이터베이스 기반 추천에서는 항상 "특징" 항목을 포함하세요.
-        
-        3. 모든 항목에 적절한 이모티콘을 일관되게 사용하세요.
-        </결과 일관성 유지 지침>
-        
-        <중요: 이미 추천된 장소 제외>
-        사용자에게 이미 추천된 장소들이 있습니다. 이 장소들과 유사하거나 동일한 장소는 추천하지 마세요.
-        </중요>
         """
         
         # 일반 검색용 프롬프트
@@ -215,79 +255,11 @@ def response_generator(state: GraphState) -> GraphState:
         # 쿼리 타입에 따라 적절한 프롬프트 선택
         user_template = event_user_template if is_event else general_user_template
         
-        # 프롬프트 선택 로직 변경: 일반 검색은 시스템 메시지 + 일반 프롬프트, 이벤트 검색은 이벤트 프롬프트만 사용
-        if is_event:
-            # 이벤트 검색의 경우 이벤트 프롬프트만 단독으로 사용 (시스템 메시지 없이)
-            event_system_message = """
-            당신은 한국어로 응답하는, 전시회와 공연 등의 이벤트 추천 전문가입니다.
-            사용자의 질문과 검색 결과를 바탕으로 가장 적합한 이벤트를 추천해주세요.
-            모든 응답은 한국어로 작성해야 합니다.
-            
-            <이벤트 정보 처리 지침>
-            1. 이벤트 이름은 검색 결과에서 정확히 추출해야 합니다.
-               - 이벤트명(전시회명, 공연명 등)을 명확하게 추출하세요.
-               - 원본 데이터에서 "제목:", "전시:", "공연:", "행사명:" 등의 키워드가 있는 부분을 확인하세요.
-            
-            2. 주소 정보가 부족한 경우:
-               - 이벤트 장소명을 기반으로 적절한 주소를 추론하세요.
-               - "XX미술관", "XX극장" 등 장소명이 있으면 실제 위치를 포함하세요.
-            
-            3. URL 처리 방법:
-               - 검색 결과에 URL이 제공된 경우에만 그대로 사용하세요.
-               - URL이 없는 경우 "정보 없음"으로 표시하세요.
-            </이벤트 정보 처리 지침>
-            
-            <중요: 이미 추천된 이벤트 제외>
-            사용자에게 이미 추천된 이벤트들이 있습니다. 이 이벤트들과 유사하거나 동일한 이벤트는 추천하지 마세요.
-            </중요>
-            """
-            
-            # 이벤트 프롬프트 개선
-            event_user_template = """
-            다음은 검색 시스템에서 찾은 이벤트 정보입니다:
-            {context}
-            
-            위 정보를 바탕으로 총 3곳의 이벤트를 추천해주세요.
-            {question}을 고려하여 가장 적합한 이벤트를 추천해주세요.
-            
-            <중요>
-            다음 이벤트들은 이미 추천된 이벤트이므로 추천에서 제외해주세요:
-            {recommended_places}
-            </중요>
-            
-            === 추천 이벤트 형식 ===
-            각 이벤트는 반드시 아래 형식으로 작성하세요:
-            
-            1️⃣ <b>[정확한 이벤트/전시회/공연 이름]</b>
-            📅 일시: [날짜 및 시간 정보]
-            📍 장소: [개최 장소 및 주소]
-            💫 추천 이유: [구체적인 추천 이유]
-            
-            2️⃣ <b>[정확한 이벤트/전시회/공연 이름]</b>
-            📅 일시: [날짜 및 시간 정보]
-            📍 장소: [개최 장소 및 주소]
-            💫 추천 이유: [구체적인 추천 이유]
-            
-            3️⃣ <b>[정확한 이벤트/전시회/공연 이름]</b>
-            📅 일시: [날짜 및 시간 정보]
-            📍 장소: [개최 장소 및 주소]
-            💫 추천 이유: [구체적인 추천 이유]
-            
-            ✨ 추가 팁: [이벤트 관람 시 알아두면 좋을 정보]
-            """
-            
-            # 이벤트 검색은 이벤트 전용 시스템 메시지와 프롬프트 사용
-            prompt = ChatPromptTemplate.from_messages([
-                ("system", event_system_message),
-                ("user", event_user_template)
-            ])
-            
-        else:
-            # 일반 검색은 기존의 시스템 메시지와 일반 프롬프트 사용
-            prompt = ChatPromptTemplate.from_messages([
-                ("system", system_message),
-                ("user", general_user_template)
-            ])
+        # 프롬프트 템플릿 생성
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_message),
+            ("user", user_template)
+        ])
         
         # 응답 생성
         chain = prompt | llm
@@ -295,6 +267,9 @@ def response_generator(state: GraphState) -> GraphState:
         # 메타데이터가 풍부한 문서 포맷팅
         def format_with_detailed_metadata(docs):
             """문서를 메타데이터와 함께 상세히 포맷팅"""
+            # 상위 5개의 문서만 사용 (컨텍스트 길이 제한 문제 해결)
+            docs = docs[:5] if len(docs) > 5 else docs
+            
             formatted_docs = []
             
             for i, doc in enumerate(docs, 1):
@@ -313,27 +288,9 @@ def response_generator(state: GraphState) -> GraphState:
                 # 원본 콘텐츠 저장 (디버깅용)
                 original_content = content
                 
-                # 1. 원본 콘텐츠에서 장소명 추출 개선
-                place_name = title
-                if content:
-                    # 장소명 추출 강화
-                    place_keywords = ["이름:", "장소:", "명칭:", "상호:", "점포명:", "가게 이름:", "카페 이름:", "음식점:"]
-                    for keyword in place_keywords:
-                        if keyword in content:
-                            start_idx = content.find(keyword) + len(keyword)
-                            end_idx = content.find("\n", start_idx)
-                            if end_idx < 0: 
-                                end_idx = len(content)
-                            extracted = content[start_idx:end_idx].strip()
-                            if extracted and len(extracted) > 1:
-                                place_name = extracted
-                                break
-                
-                    # 추출 실패 시 첫 줄에서 장소명 찾기 시도
-                    if place_name == title:
-                        first_line = content.split('\n')[0].strip()
-                        if len(first_line) < 50 and len(first_line) > 2:  # 합리적인 장소명 길이
-                            place_name = first_line
+                # LLM으로 장소명 추출
+                place_name = extract_place_name_with_model(content, title)
+                print(f"[장소 {i}] 추출된 장소명: '{place_name}' (원본 제목: '{title}')")
                 
                 # 2. URL 추출 전략 개선
                 blog_url = ""
@@ -481,6 +438,9 @@ URL: {final_url}
         # 이벤트 데이터 처리를 위한 특별 포맷팅 함수
         def format_event_data(docs):
             """이벤트 문서를 메타데이터와 함께 상세히 포맷팅"""
+            # 상위 5개의 문서만 사용 (컨텍스트 길이 제한 문제 해결)
+            docs = docs[:5] if len(docs) > 5 else docs
+            
             formatted_docs = []
             
             for i, doc in enumerate(docs, 1):
@@ -497,30 +457,9 @@ URL: {final_url}
                 date = meta.get("date", "")
                 time_info = meta.get("time", "")  # time 필드에서 날짜/시간 정보 추출
                 
-                # 원본 콘텐츠 저장
-                original_content = content
-                
-                # 1. 이벤트명 추출
+                # 이벤트명은 메타데이터 타이틀 사용
                 event_name = title
-                if not event_name:
-                    # 이벤트명 추출 시도
-                    event_keywords = ["제목:", "전시:", "공연:", "행사명:", "이벤트명:", "프로그램명:"]
-                    for keyword in event_keywords:
-                        if keyword in content:
-                            start_idx = content.find(keyword) + len(keyword)
-                            end_idx = content.find("\n", start_idx)
-                            if end_idx < 0: 
-                                end_idx = len(content)
-                            extracted = content[start_idx:end_idx].strip()
-                            if extracted and len(extracted) > 1:
-                                event_name = extracted
-                                break
-                    
-                    # 첫 줄에서 이벤트명 찾기 시도
-                    if not event_name:
-                        first_line = content.split('\n')[0].strip()
-                        if len(first_line) < 100 and len(first_line) > 2:
-                            event_name = first_line
+                print(f"[이벤트 {i}] 이벤트명: '{event_name}'")
                 
                 # 2. 일시 정보 처리
                 event_date = ""
@@ -602,7 +541,7 @@ URL: {final_url}
                 formatted_doc = f"""
 문서 {i}:
 이벤트명: {event_name}
-일시: {event_date}
+일시: {event_date if event_date else "정보 없음"}
 장소: {venue_info if venue_info else "정보 없음"}
 설명: {content[:250]}{'...' if len(content) > 250 else ''}
 URL: {final_url}
