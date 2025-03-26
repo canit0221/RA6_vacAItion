@@ -157,7 +157,7 @@ def google_callback(request):
             # 랜덤 사용자 이름 생성 (이메일 주소에서 @ 앞부분 + 랜덤 숫자)
             import uuid
 
-            username = email.split("@")[0] + str(uuid.uuid4())[:8]
+            username = email.split("@")[0]
             nickname = username  # 기본 닉네임으로 사용자 이름 사용
 
             # 일단 임시 세션에 필요한 데이터를 저장
