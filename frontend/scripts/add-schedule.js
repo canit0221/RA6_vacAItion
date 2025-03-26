@@ -1,5 +1,5 @@
 // 상수 정의
-const BACKEND_BASE_URL = 'http://localhost:8000'; // 백엔드 기본 URL
+const BACKEND_BASE_URL = 'https://vacaition.life'; // 백엔드 기본 URL
 const ACCESS_TOKEN_KEY = 'access_token'; // 로컬 스토리지에 저장된 토큰 키 이름
 const USERNAME_KEY = 'username';
 
@@ -336,7 +336,7 @@ function checkLoginStatus() {
     const accessToken = localStorage.getItem('access_token');
     if (!accessToken) {
         // 비로그인 상태: 로그인 페이지로 리다이렉트
-        window.location.replace('login.html');
+        window.location.replace('../pages/login.html');
         return false;
     }
     return true;
@@ -414,7 +414,7 @@ function initializeMiniCalendar(selectedDate) {
                 const newDate = new Date(currentYear, currentMonth, day);
                 // ISO 문자열 대신 로컬 날짜 형식 사용
                 const dateStr = formatLocalDate(newDate);
-                window.location.href = `add-schedule.html?date=${dateStr}`;
+                window.location.href = `../pages/add-schedule.html?date=${dateStr}`;
             });
             
             calendarGrid.appendChild(dayElement);
@@ -646,9 +646,9 @@ function setupNavLinks() {
             e.preventDefault();
             
             if (this.textContent.includes('Home')) {
-                window.location.href = 'calendar.html';
+                window.location.href = '../index.html';
             } else if (this.id === 'profileNavLink') {
-                window.location.href = 'profile.html';
+                window.location.href = '../pages/profile.html';
             } else if (this.textContent.includes('Logout')) {
                 logout();
             }
@@ -860,7 +860,7 @@ async function saveScheduleToDB() {
         if (!accessToken) {
             console.error('[Error] 인증 토큰이 없습니다.');
             showErrorMessage('로그인이 필요합니다.');
-            window.location.replace('login.html');
+            window.location.replace('../pages/login.html');
             return;
         }
         
@@ -1162,7 +1162,7 @@ async function submitSchedule() {
         // 토큰 확인
         const accessToken = localStorage.getItem('access_token');
         if (!accessToken) {
-            window.location.href = 'login.html';
+            window.location.href = '../pages/login.html';
             return;
         }
         
@@ -1235,7 +1235,7 @@ async function submitSchedule() {
                 
                 // 방법 1: 직접 window.location.href 변경 (기본 방법)
                 try {
-        window.location.href = 'calendar.html';
+        window.location.href = '../index.html';
                 } catch (e) {
                     // 방법 1 실패
                 }
@@ -1243,23 +1243,23 @@ async function submitSchedule() {
                 // 방법 2: setTimeout으로 지연 후 이동 시도
         setTimeout(() => {
                     try {
-                        window.location.replace('calendar.html');
+                        window.location.replace('../index.html');
                     } catch (e) {
                         // 방법 2 실패
                         
                         // 방법 3: window.open 사용
                         try {
-                            window.open('calendar.html', '_self');
+                            window.open('../index.html', '_self');
                         } catch (e2) {
                             // 방법 3 실패
                             
                             // 방법 4: 홈 버튼 찾아서 클릭
-                            const homeButton = document.querySelector('a[href="calendar.html"]');
+                            const homeButton = document.querySelector('a[href="../index.html"]');
             if (homeButton) {
                 homeButton.click();
             } else {
                                 // 방법 5: history API 사용
-                                window.history.pushState({}, '', 'calendar.html');
+                                window.history.pushState({}, '', '../index.html');
                                 window.location.reload();
             }
                         }
@@ -1313,7 +1313,7 @@ async function logout() {
         
                 // 페이지 이동
         setTimeout(() => {
-            window.location.href = 'login.html';
+            window.location.href = '../pages/login.html';
                 }, 500);
     }
 }
@@ -1646,8 +1646,8 @@ window.deleteSchedule = function() {
                 
                 // 2. 1.5초 후 캘린더로 이동 (색상 업데이트 위해)
                 setTimeout(() => {
-                    window.location.href = 'calendar.html';
-                }, 500);
+                    window.location.href = '../index.html';
+                        }, 500);
             } else {
                 // 삭제 실패
                 

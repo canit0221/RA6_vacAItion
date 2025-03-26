@@ -1,4 +1,4 @@
-const BACKEND_BASE_URL = 'http://localhost:8000';
+const BACKEND_BASE_URL = 'https://vacaition.life';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 로그인 상태 확인
@@ -11,9 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // 회원 탈퇴 버튼 이벤트 리스너
-    const deleteAccountBtn = document.getElementById('deleteAccountBtn');
-    if (deleteAccountBtn) {
-        deleteAccountBtn.addEventListener('click', deleteAccount);
+    const deleteAccountsBtn = document.getElementById('deleteAccountsBtn');
+    if (deleteAccountsBtn) {
+        deleteAccountsBtn.addEventListener('click', deleteAccounts);
     }
     
     // 달력으로 돌아가기 버튼 이벤트 리스너
@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (returnToHomeBtn) {
         returnToHomeBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            window.location.href = 'calendar.html';
+            window.location.href = '../index.html';
         });
     }
 });
@@ -33,12 +33,12 @@ function checkLoginStatus() {
     if (!accessToken) {
         // 비로그인 상태면 로그인 페이지로 리다이렉트
         // alert('로그인이 필요한 페이지입니다.');
-        window.location.href = 'login.html';
+        window.location.href = '../pages/login.html';
     }
 }
 
 // 회원 탈퇴 함수
-async function deleteAccount() {
+async function deleteAccounts() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     const currentUsername = localStorage.getItem('username');
@@ -105,13 +105,11 @@ async function deleteAccount() {
             // HTTP 상태 코드가 2xx인 모든 응답을 성공으로 처리
             if (deleteResponse.status >= 200 && deleteResponse.status < 300) {
                 // 로컬 스토리지에서 토큰 제거
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('refresh_token');
-                localStorage.removeItem('username');
+                localStorage.clear();
                 
-                alert('회원 탈퇴가 완료되었습니다.');
+                alert('계정이 성공적으로 삭제되었습니다.');
                 // 로그인 페이지로 이동 시 특별한 파라미터 추가
-                window.location.href = 'login.html?fromDeleteAccount=true';
+                window.location.href = './login.html?fromDeleteAccounts=true';
                 return;
             }
             
@@ -130,13 +128,11 @@ async function deleteAccount() {
             
             // 네트워크 오류지만 실제로는 삭제가 성공했을 수 있으므로
             // 토큰을 제거하고 로그인 페이지로 이동
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('refresh_token');
-            localStorage.removeItem('username');
+            localStorage.clear();
             
             alert('회원 탈퇴가 완료되었습니다.');
             // 로그인 페이지로 이동 시 특별한 파라미터 추가
-            window.location.href = 'login.html?fromDeleteAccount=true';
+            window.location.href = './login.html?fromDeleteAccounts=true';
         }
     } catch (error) {
         console.error('회원 탈퇴 에러:', error);

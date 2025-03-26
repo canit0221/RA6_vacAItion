@@ -1,4 +1,4 @@
-const BACKEND_BASE_URL = 'http://localhost:8000';
+const BACKEND_BASE_URL = 'https://vacaition.life';
 // 디버깅을 위한 로그 활성화
 const DEBUG = true;
 
@@ -66,7 +66,7 @@ function checkLoginStatus() {
     if (!accessToken) {
         // 비로그인 상태: 로그인 페이지로 리다이렉트
         alert('채팅을 사용하려면 로그인이 필요합니다.');
-        window.location.href = 'login.html';
+        window.location.href = '../pages/login.html';
         return;
     }
     
@@ -262,7 +262,7 @@ class ChatWebSocket {
             const companionParam = urlParams.get('companion');
             
             // WebSocket URL 생성 (기존 URL에 새 파라미터 추가)
-            let wsUrl = `ws://localhost:8000/ws/chat/${this.sessionId}/?token=${accessToken}`;
+            let wsUrl = `wss://vacaition.life/ws/chat/${this.sessionId}/?token=${accessToken}`;
             
             // date 파라미터 추가
             if (dateParam) {
@@ -1178,7 +1178,7 @@ async function logout() {
         localStorage.removeItem('username');
         
         alert('로그아웃 되었습니다.');
-        window.location.replace('login.html');
+        window.location.replace('../pages/login.html');
     }
 }
 
@@ -1200,13 +1200,13 @@ function setupEventListeners() {
         // 홈 링크
         navLinks[0].addEventListener('click', function(e) {
             e.preventDefault();
-            window.location.href = 'calendar.html';
+            window.location.href = '../index.html';
         });
         
         // 프로필 링크
         navLinks[1].addEventListener('click', function(e) {
             e.preventDefault();
-            window.location.href = 'profile.html';
+            window.location.href = '../pages/profile.html';
         });
         
         // 로그아웃 링크
@@ -1225,7 +1225,7 @@ async function deleteChatSession(sessionId) {
     const accessToken = localStorage.getItem('access_token');
     if (!accessToken) {
         alert('로그인이 필요한 기능입니다.');
-        window.location.href = 'login.html';
+        window.location.href = '../pages/login.html';
         return;
     }
     

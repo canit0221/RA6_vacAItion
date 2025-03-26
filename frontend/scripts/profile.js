@@ -1,4 +1,4 @@
-const BACKEND_BASE_URL = 'http://localhost:8000';
+const BACKEND_BASE_URL = 'https://vacaition.life';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 로그인 상태 확인
@@ -27,16 +27,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (changePasswordLink) {
         changePasswordLink.addEventListener('click', (e) => {
             e.preventDefault();
-            alert('비밀번호 변경 기능은 아직 개발 중입니다.');
+            window.location.href = '../pages/change-password.html';
         });
     }
     
     // 계정 삭제 링크 이벤트 리스너
-    const deleteAccountLink = document.getElementById('deleteAccountLink');
-    if (deleteAccountLink) {
-        deleteAccountLink.addEventListener('click', (e) => {
+    const deleteAccountsLink = document.getElementById('deleteAccountsLink');
+    if (deleteAccountsLink) {
+        deleteAccountsLink.addEventListener('click', (e) => {
             e.preventDefault();
-            window.location.href = 'delete-account.html';
+            window.location.href = '../pages/delete-accounts.html';
         });
     }
 });
@@ -56,7 +56,7 @@ function checkLoginStatus() {
     } else {
         // 비로그인 상태면 로그인 페이지로 리다이렉트
         alert('로그인이 필요한 페이지입니다.');
-        window.location.href = 'login.html';
+        window.location.href = '../pages/login.html';
     }
 }
 
@@ -113,7 +113,7 @@ async function loadProfileData() {
 // 회원정보 수정 페이지로 이동하는 함수
 function redirectToEditProfile() {
     // 회원정보 수정 페이지로 이동
-    window.location.href = 'edit-profile.html';
+    window.location.href = '../pages/edit-profile.html';
 }
 
 // 로그아웃 함수
@@ -123,11 +123,11 @@ async function logout() {
         
         if (!refreshToken) {
             alert('이미 로그아웃 되었습니다.');
-            window.location.href = 'login.html';
+            window.location.href = '../pages/login.html';
             return;
         }
         
-        const response = await fetch(`${BACKEND_BASE_URL}/api/account/logout/`, {
+        const response = await fetch(`${BACKEND_BASE_URL}/api/accounts/logout/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -144,7 +144,7 @@ async function logout() {
         localStorage.removeItem('username');
         
         alert('로그아웃 되었습니다.');
-        window.location.href = 'login.html';
+        window.location.href = '../pages/login.html';
     } catch (error) {
         console.error('로그아웃 에러:', error);
         // 에러가 발생해도 로컬 스토리지는 비우기
@@ -152,6 +152,6 @@ async function logout() {
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('username');
         alert('로그아웃 처리 중 오류가 발생했습니다.');
-        window.location.href = 'login.html';
+        window.location.href = '../pages/login.html';
     }
 } 

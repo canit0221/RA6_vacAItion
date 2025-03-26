@@ -16,6 +16,17 @@ _general_vectorstore = None
 _event_docs = None
 _general_docs = None
 _embeddings = None
+import logging
+
+# 로거 설정
+logger = logging.getLogger(__name__)
+
+# 싱글톤 벡터스토어 인스턴스 저장
+_event_vectorstore = None
+_general_vectorstore = None
+_event_docs = None
+_general_docs = None
+_embeddings = None
 
 
 # Django 설정 임포트 방식 변경
@@ -39,7 +50,7 @@ def _init_django():
 def get_embeddings():
     global _embeddings
     if _embeddings is None:
-        print("OpenAI 임베딩 모델 초기화")
+        logger.info("OpenAI 임베딩 모델 초기화")
         _embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
     return _embeddings
 
@@ -47,16 +58,16 @@ def get_embeddings():
 # 벡터스토어 초기화 함수
 def initialize_vectorstores():
     """서버 시작 시 벡터스토어를 미리 로드합니다."""
-    print("벡터스토어 초기화 시작")
+    logger.info("벡터스토어 초기화 시작")
     try:
         # 이벤트 벡터스토어 로드
         load_data("event")
         # 일반 벡터스토어 로드
         load_data("general")
-        print("벡터스토어 초기화 완료")
+        logger.info("벡터스토어 초기화 완료")
         return True
     except Exception as e:
-        print(f"벡터스토어 초기화 실패: {str(e)}")
+        logger.error(f"벡터스토어 초기화 실패: {str(e)}")
         return False
 
 
@@ -79,9 +90,7 @@ def load_data(query_type: str) -> Tuple[List[Document], Any]:
     from chatbot.models import Event, NaverBlog, NaverBlogFaiss
 
     # 현재 프로젝트 디렉토리 경로 얻기
-    current_dir = (
-        Path(__file__).resolve().parent.parent.parent.parent
-    )  # RA6_vacAItion 디렉토리까지
+    current_dir = Path(__file__).resolve().parent.parent.parent  # Backend 디렉토리까지
 
     # 임베딩 모델 가져오기 (싱글톤)
     embeddings = get_embeddings()
@@ -89,7 +98,7 @@ def load_data(query_type: str) -> Tuple[List[Document], Any]:
     if query_type == "event":
         # 이미 로드된 이벤트 벡터스토어가 있으면 반환
         if _event_vectorstore is not None and _event_docs is not None:
-            print("캐시된 이벤트 벡터스토어 사용")
+            logger.debug("캐시된 이벤트 벡터스토어 사용")
             return _event_docs, _event_vectorstore
 
         # 이벤트 데이터 벡터스토어 경로
@@ -124,35 +133,29 @@ def load_data(query_type: str) -> Tuple[List[Document], Any]:
                 )
                 event_docs.append(doc)
             except Exception as e:
-                print(f"이벤트 문서 변환 중 오류 발생: {str(e)}")
+                logger.error(f"이벤트 문서 변환 중 오류 발생: {str(e)}")
                 continue
 
         # 이벤트 벡터스토어 로드 또는 생성
         try:
-            print("이벤트 벡터스토어 로딩 시도")
+            logger.info("이벤트 벡터스토어 로딩 시도")
             _event_vectorstore = FAISS.load_local(
                 str(event_vectorstore_path),
                 embeddings,
                 allow_dangerous_deserialization=True,
             )
-            print("이벤트 벡터스토어 로딩 성공")
+            logger.info("이벤트 벡터스토어 로딩 성공")
             _event_docs = event_docs
-        except Exception as e:
-            print(f"이벤트 벡터스토어 로딩 실패: {str(e)}")
-            if event_docs:
-                print("이벤트 벡터스토어 새로 생성")
-                _event_vectorstore = FAISS.from_documents(event_docs, embeddings)
-                _event_vectorstore.save_local(str(event_vectorstore_path))
-                _event_docs = event_docs
-            else:
-                raise ValueError("이벤트 문서가 없어 벡터스토어를a 생성할 수 없습니다.")
+        except Exception:
+            logger.error("이벤트 벡터스토어 로딩 실패")
+            raise ValueError("이벤트 문서가 없어 벡터스토어를 생성할 수 없습니다.")
 
         return _event_docs, _event_vectorstore
 
     else:
         # 이미 로드된 일반 벡터스토어가 있으면 반환
         if _general_vectorstore is not None and _general_docs is not None:
-            print("캐시된 일반 벡터스토어 사용")
+            logger.debug("캐시된 일반 벡터스토어 사용")
             return _general_docs, _general_vectorstore
 
         # 일반 데이터 벡터스토어 경로
@@ -162,7 +165,7 @@ def load_data(query_type: str) -> Tuple[List[Document], Any]:
         docs = []
         # Django ORM을 사용하여 NaverBlog 모델에서 데이터 가져오기
         naverblog_queryset = NaverBlog.objects.all()
-        print(f"NaverBlog 데이터 로드: {naverblog_queryset.count()} 개")
+        logger.debug(f"NaverBlog 데이터 로드: {naverblog_queryset.count()} 개")
 
         if not naverblog_queryset.exists():
             raise ValueError("일반 데이터가 데이터베이스에 존재하지 않습니다.")
@@ -179,25 +182,19 @@ def load_data(query_type: str) -> Tuple[List[Document], Any]:
                 )
                 docs.append(doc)
             except Exception as e:
-                print(f"일반 문서 변환 중 오류 발생: {str(e)}")
+                logger.error(f"일반 문서 변환 중 오류 발생: {str(e)}")
                 continue
 
         # 일반 벡터스토어 로드 또는 생성
         try:
-            print("일반 벡터스토어 로딩 시도")
+            logger.info("일반 벡터스토어 로딩 시도")
             _general_vectorstore = FAISS.load_local(
                 str(vectorstore_path), embeddings, allow_dangerous_deserialization=True
             )
-            print("일반 벡터스토어 로딩 성공")
+            logger.info("일반 벡터스토어 로딩 성공")
             _general_docs = docs
-        except Exception as e:
-            print(f"일반 벡터스토어 로딩 실패: {str(e)}")
-            if docs:
-                print("일반 벡터스토어 새로 생성")
-                _general_vectorstore = FAISS.from_documents(docs, embeddings)
-                _general_vectorstore.save_local(str(vectorstore_path))
-                _general_docs = docs
-            else:
-                raise ValueError("일반 문서가 없어 벡터스토어를 생성할 수 없습니다.")
+        except Exception:
+            logger.error("일반 벡터스토어 로딩 실패")
+            raise ValueError("일반 문서가 없어 벡터스토어를 생성할 수 없습니다.")
 
         return _general_docs, _general_vectorstore
