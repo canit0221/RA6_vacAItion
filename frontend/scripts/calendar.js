@@ -462,20 +462,18 @@ class Calendar {
                 dayElement.classList.add('today');
             }
             
-            // 날짜를 표시할 전용 컨테이너 생성
-            const dateContainer = document.createElement('div');
-            dateContainer.className = 'date-container';
+            // 날짜 표시 강화 - 날짜 텍스트를 넣을 별도의 span 요소 생성
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'date-number';
+            dateSpan.textContent = day;
+            dateSpan.style.fontWeight = 'bold'; // 글자 굵게 표시
+            dateSpan.style.fontSize = '16px'; // 글자 크기 조정
+            dateSpan.style.color = '#000'; // 글자 색상 검정색으로 설정
+            dateSpan.style.position = 'relative'; // 상대 위치 설정
+            dateSpan.style.zIndex = '2'; // 다른 요소보다 앞에 표시
             
-            // 날짜 숫자를 표시할 span 생성
-            const dateNumber = document.createElement('span');
-            dateNumber.className = 'date-number';
-            dateNumber.textContent = day;
-            
-            // 날짜 컨테이너에 날짜 숫자 추가
-            dateContainer.appendChild(dateNumber);
-            
-            // 날짜 컨테이너를 day 요소에 추가
-            dayElement.appendChild(dateContainer);
+            // 기존 코드를 대체하지 않고 추가
+            dayElement.appendChild(dateSpan);
             dayElement.setAttribute('data-date', day);
 
             // Add click event
