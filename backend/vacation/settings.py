@@ -26,6 +26,9 @@ load_dotenv()
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 
+# Social Auth 설정 추가
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
 # DEBUG 설정을 환경변수로 관리
 DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
@@ -44,17 +47,27 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sites",
     # Third party
     "rest_framework",
+    "rest_framework.authtoken",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "django_extensions",
     "channels",
     "corsheaders",
+    # dj-rest-auth
+    "dj_rest_auth",
+    "dj_rest_auth.registration",
     # local apps
     "accounts",
     "chatbot.apps.ChatbotConfig",
     "calendar_app",
+    # allauth
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
 ]
 
 REST_FRAMEWORK = {
@@ -83,6 +96,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # django-allauth를 위한 미들웨어 추가
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = "vacation.urls"
@@ -258,3 +273,14 @@ EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS") == "True"
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL")
+
+# django-allauth 설정
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
+ACCOUNT_EMAIL_VERIFICATION = "none"
+
+# dj-rest-auth 설정
+REST_USE_JWT = True
+
+# 사이트 ID 설정 (django.contrib.sites)
+SITE_ID = 1

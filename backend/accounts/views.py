@@ -15,6 +15,323 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.tokens import default_token_generator
 
+# Google 소셜 로그인 관련 import
+import os
+from django.shortcuts import redirect
+from allauth.socialaccount.models import SocialAccount
+from allauth.socialaccount.providers.google import views as google_view
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from django.http import JsonResponse
+import requests
+from json.decoder import JSONDecodeError
+
+# Google 로그인 기본 설정
+BASE_URL = "https://vacaition.life/"  # 실제 배포 시 도메인으로 변경 필요
+GOOGLE_CALLBACK_URI = BASE_URL + "accounts/google/callback/"
+
+
+def google_login(request):
+    """
+    Google 로그인 요청
+    """
+    # 프론트엔드에서 전달한 리다이렉트 URI 가져오기 (없으면 기본값 사용)
+    redirect_uri = request.GET.get("redirect_uri")
+
+    # 구글에서 사용자 정보 중 이메일 스코프 요청
+    scope = "https://www.googleapis.com/auth/userinfo.email"
+
+    # settings.py에서 GOOGLE_CLIENT_ID 가져오기
+    client_id = getattr(settings, "GOOGLE_CLIENT_ID")
+
+    # GOOGLE_CALLBACK_URI를 우선 사용하되, redirect_uri가 있으면 state 파라미터에 인코딩
+    state = ""
+    if redirect_uri:
+        import base64
+
+        # 안전하게 인코딩하여 state 파라미터로 전달
+        state = f"&state={base64.urlsafe_b64encode(redirect_uri.encode()).decode()}"
+
+    # 구글 로그인 페이지로 리다이렉트
+    google_auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?client_id={client_id}&response_type=code&redirect_uri={GOOGLE_CALLBACK_URI}&scope={scope}{state}"
+    return redirect(google_auth_url)
+
+
+def google_callback(request):
+    """
+    Google 로그인 콜백 처리
+    """
+    # state 파라미터 확인 (프론트엔드 리다이렉트 URI가 있는 경우)
+    state = request.GET.get("state")
+    custom_redirect_uri = None
+
+    if state:
+        import base64
+
+        try:
+            # 안전하게 디코딩
+            custom_redirect_uri = base64.urlsafe_b64decode(state.encode()).decode()
+        except:
+            # 디코딩 실패 시 무시
+            pass
+
+    # 클라이언트 정보 가져오기
+    client_id = getattr(settings, "GOOGLE_CLIENT_ID")
+    client_secret = getattr(settings, "GOOGLE_CLIENT_SECRET")
+
+    # 구글에서 받은 코드
+    code = request.GET.get("code")
+
+    # 이 부분에서 HTTP 요청 대신 직접 처리
+    try:
+        # 구글 로그인 플로우 직접 처리
+        from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+        from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+        from dj_rest_auth.registration.views import SocialLoginView
+
+        # 구글에서 얻은 코드로 액세스 토큰 요청
+        token_req = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": GOOGLE_CALLBACK_URI,
+            },
+        )
+        token_req_json = token_req.json()
+        access_token = token_req_json.get("access_token")
+
+        if not access_token:
+            return JsonResponse(
+                {"success": False, "message": "액세스 토큰을 얻을 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 액세스 토큰으로 이메일 정보 요청
+        profile_req = requests.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        profile_json = profile_req.json()
+        email = profile_json.get("email")
+
+        if not email:
+            return JsonResponse(
+                {"success": False, "message": "이메일 정보를 가져올 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        print(f"구글 프로필: {profile_json}")  # 디버깅용
+
+        # 기존 사용자 확인 또는 신규 사용자 생성
+        User = get_user_model()
+        try:
+            user = User.objects.get(email=email)
+
+            # 소셜 계정 확인
+            try:
+                social_user = SocialAccount.objects.get(user=user)
+
+                # 다른 소셜 계정으로 가입된 경우
+                if social_user.provider != "google":
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "message": "다른 소셜 계정으로 가입된 이메일입니다",
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            except SocialAccount.DoesNotExist:
+                # 일반 계정으로 가입된 이메일인 경우
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": "해당 이메일로 가입된 일반 계정이 있습니다",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        except User.DoesNotExist:
+            # 랜덤 사용자 이름 생성 (이메일 주소에서 @ 앞부분 + 랜덤 숫자)
+            import uuid
+
+            username = email.split("@")[0] + str(uuid.uuid4())[:8]
+            nickname = username  # 기본 닉네임으로 사용자 이름 사용
+
+            # 새 사용자 생성
+            user = User.objects.create(
+                username=username,
+                email=email,
+                nickname=nickname,
+                first_name=profile_json.get("given_name", ""),  # 이름 추가
+                last_name=profile_json.get("family_name", ""),  # 성 추가
+            )
+            user.set_unusable_password()  # 비밀번호 없이 소셜 로그인만 가능하도록 설정
+            user.save()
+
+            # 소셜 계정 연결
+            SocialAccount.objects.create(
+                user=user,
+                provider="google",
+                uid=profile_json.get("id"),  # Google 사용자 ID
+                extra_data=profile_json,
+            )
+
+        # JWT 토큰 생성
+        refresh = RefreshToken.for_user(user)
+
+        # 커스텀 리다이렉트 URI가 있는 경우 해당 URI로 리다이렉션
+        if custom_redirect_uri:
+            redirect_url = f"{custom_redirect_uri}?access={str(refresh.access_token)}&refresh={str(refresh)}&username={user.username}"
+            return redirect(redirect_url)
+
+        # 그렇지 않으면 JSON 응답 반환
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "구글 로그인 성공",
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "username": user.username,
+            }
+        )
+
+    except Exception as e:
+        print(f"구글 로그인 처리 오류: {str(e)}")
+        return JsonResponse(
+            {"success": False, "message": f"구글 로그인 처리 중 오류: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+class GoogleLogin(APIView):
+    """
+    Google 로그인 완료 처리 뷰
+    """
+
+    def post(self, request):
+        try:
+            # 클라이언트에서 받은 액세스 토큰과 코드
+            access_token = request.data.get("access_token")
+            code = request.data.get("code")
+
+            if not access_token or not code:
+                return Response(
+                    {"success": False, "message": "액세스 토큰과 코드가 필요합니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 액세스 토큰으로 이메일 정보 요청
+            profile_req = requests.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            profile_json = profile_req.json()
+            email = profile_json.get("email")
+
+            if not email:
+                return Response(
+                    {"success": False, "message": "이메일 정보를 가져올 수 없습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            print(f"구글 프로필: {profile_json}")  # 디버깅용
+
+            # 기존 사용자 확인 또는 신규 사용자 생성
+            User = get_user_model()
+            try:
+                user = User.objects.get(email=email)
+                print(f"기존 사용자 발견: {user.username}")
+
+                # 소셜 계정 확인
+                try:
+                    social_user = SocialAccount.objects.get(user=user)
+
+                    # 다른 소셜 계정으로 가입된 경우
+                    if social_user.provider != "google":
+                        return Response(
+                            {
+                                "success": False,
+                                "message": "다른 소셜 계정으로 가입된 이메일입니다",
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                except SocialAccount.DoesNotExist:
+                    # 일반 계정으로 가입된 이메일인 경우
+                    return Response(
+                        {
+                            "success": False,
+                            "message": "해당 이메일로 가입된 일반 계정이 있습니다",
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            except User.DoesNotExist:
+                # 랜덤 사용자 이름 생성 (이메일 주소에서 @ 앞부분 + 랜덤 숫자)
+                import uuid
+
+                username = email.split("@")[0] + str(uuid.uuid4())[:8]
+                nickname = username  # 기본 닉네임으로 사용자 이름 사용
+                print(f"새 사용자 생성 시도: username={username}, nickname={nickname}")
+
+                # 새 사용자 생성
+                try:
+                    user = User.objects.create(
+                        username=username,
+                        email=email,
+                        nickname=nickname,
+                        first_name=profile_json.get("given_name", ""),  # 이름 추가
+                        last_name=profile_json.get("family_name", ""),  # 성 추가
+                    )
+                    user.set_unusable_password()  # 비밀번호 없이 소셜 로그인만 가능하도록 설정
+                    user.save()
+                    print(f"새 사용자 생성 성공: {user.username}")
+
+                    # 소셜 계정 연결
+                    SocialAccount.objects.create(
+                        user=user,
+                        provider="google",
+                        uid=profile_json.get("id"),  # Google 사용자 ID
+                        extra_data=profile_json,
+                    )
+                except Exception as e:
+                    print(f"사용자 생성 오류: {str(e)}")
+                    return Response(
+                        {"success": False, "message": f"사용자 생성 중 오류: {str(e)}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            # JWT 토큰 생성
+            try:
+                refresh = RefreshToken.for_user(user)
+            except Exception as e:
+                print(f"JWT 토큰 생성 오류: {str(e)}")
+                return Response(
+                    {"success": False, "message": f"JWT 토큰 생성 중 오류: {str(e)}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 응답 데이터 구성
+            response_data = {
+                "success": True,
+                "message": "구글 로그인 성공",
+                "username": user.username,
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(f"전체 처리 오류: {str(e)}")
+            return Response(
+                {"success": False, "message": f"처리 중 오류가 발생했습니다: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
 
 # 회원가입
 class CreateUserView(APIView):
@@ -228,28 +545,22 @@ class ChangePasswordView(APIView):
 
     def post(self, request):
         user = request.user
-        current_password = request.data.get('current_password')
-        new_password = request.data.get('new_password')
-        confirm_password = request.data.get('confirm_password')
+        current_password = request.data.get("current_password")
+        new_password = request.data.get("new_password")
+        confirm_password = request.data.get("confirm_password")
 
         # 현재 비밀번호 확인
         if not user.check_password(current_password):
             return Response(
-                {
-                    "success": False,
-                    "message": "현재 비밀번호가 일치하지 않습니다."
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"success": False, "message": "현재 비밀번호가 일치하지 않습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # 새 비밀번호 확인
         if new_password != confirm_password:
             return Response(
-                {
-                    "success": False,
-                    "message": "새 비밀번호가 일치하지 않습니다."
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"success": False, "message": "새 비밀번호가 일치하지 않습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
@@ -262,7 +573,7 @@ class ChangePasswordView(APIView):
             # 새 비밀번호 설정
             user.set_password(new_password)
             user.save()
-            
+
             # 새로운 토큰 발급
             new_refresh = RefreshToken.for_user(user)
             new_access = new_refresh.access_token
@@ -272,43 +583,41 @@ class ChangePasswordView(APIView):
                     "success": True,
                     "message": "비밀번호가 성공적으로 변경되었습니다.",
                     "access_token": str(new_access),
-                    "refresh_token": str(new_refresh)
+                    "refresh_token": str(new_refresh),
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
 
         except TokenError:
             return Response(
-                {
-                    "success": False,
-                    "message": "유효하지 않은 토큰입니다."
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"success": False, "message": "유효하지 않은 토큰입니다."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
             return Response(
                 {
                     "success": False,
-                    "message": f"비밀번호 변경 중 오류가 발생했습니다: {str(e)}"
+                    "message": f"비밀번호 변경 중 오류가 발생했습니다: {str(e)}",
                 },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
 class RequestPasswordResetView(APIView):
     def post(self, request):
-        username = request.data.get('username')
-        email = request.data.get('email')
-        
+        username = request.data.get("username")
+        email = request.data.get("email")
+
         try:
             user = get_user_model().objects.get(username=username, email=email)
-            
+            # 비밀번호 재설정 토큰 생성
             token = default_token_generator.make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
-            
-            # 여기를 Vercel 주소로 수정
+
+            # 비밀번호 재설정 링크 생성
             reset_url = f"https://ra6vacaition.vercel.app/pages/reset-password.html?uid={uid}&token={token}"
-            
+
+            # 이메일 내용 생성
             email_subject = "[vacAItion] 비밀번호 재설정 안내"
             email_message = f"""
                 안녕하세요, {user.nickname}님!
@@ -324,7 +633,7 @@ class RequestPasswordResetView(APIView):
                 감사합니다.
                 vacAItion 팀
             """
-            
+
             # 이메일 발송
             send_mail(
                 subject=email_subject,
@@ -333,80 +642,71 @@ class RequestPasswordResetView(APIView):
                 recipient_list=[email],
                 fail_silently=False,
             )
-            
+
             return Response(
                 {
                     "success": True,
-                    "message": "비밀번호 재설정 링크가 이메일로 발송되었습니다."
+                    "message": "비밀번호 재설정 링크가 이메일로 발송되었습니다.",
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
-            
+
         except get_user_model().DoesNotExist:
             return Response(
                 {
                     "success": False,
-                    "message": "입력하신 정보와 일치하는 계정을 찾을 수 없습니다."
+                    "message": "입력하신 정보와 일치하는 계정을 찾을 수 없습니다.",
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
             return Response(
                 {
                     "success": False,
-                    "message": f"이메일 발송 중 오류가 발생했습니다: {str(e)}"
+                    "message": f"이메일 발송 중 오류가 발생했습니다: {str(e)}",
                 },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
 class ResetPasswordView(APIView):
     def post(self, request):
-        uid = request.data.get('uid')
-        token = request.data.get('token')
-        new_password = request.data.get('new_password')
-        
+        uid = request.data.get("uid")
+        token = request.data.get("token")
+        new_password = request.data.get("new_password")
+
         if not all([uid, token, new_password]):
             return Response(
-                {
-                    "success": False,
-                    "message": "필수 정보가 누락되었습니다."
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"success": False, "message": "필수 정보가 누락되었습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-            
+
         try:
             # uid 디코딩하여 사용자 찾기
             user_id = force_str(urlsafe_base64_decode(uid))
             user = get_user_model().objects.get(pk=user_id)
-            
+
             # 토큰 유효성 검사
             if not default_token_generator.check_token(user, token):
                 return Response(
-                    {
-                        "success": False,
-                        "message": "유효하지 않거나 만료된 링크입니다."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"success": False, "message": "유효하지 않거나 만료된 링크입니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-                
+
             # 새 비밀번호 설정
             user.set_password(new_password)
             user.save()
-            
+
             return Response(
-                {
-                    "success": True,
-                    "message": "비밀번호가 성공적으로 변경되었습니다."
-                },
-                status=status.HTTP_200_OK
+                {"success": True, "message": "비밀번호가 성공적으로 변경되었습니다."},
+                status=status.HTTP_200_OK,
             )
-            
+
         except (TypeError, ValueError, OverflowError, get_user_model().DoesNotExist):
             return Response(
                 {
                     "success": False,
-                    "message": "유효하지 않은 비밀번호 재설정 링크입니다."
+                    "message": "유효하지 않은 비밀번호 재설정 링크입니다.",
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
