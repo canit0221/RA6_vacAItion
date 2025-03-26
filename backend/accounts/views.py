@@ -610,7 +610,6 @@ class RequestPasswordResetView(APIView):
 
         try:
             user = get_user_model().objects.get(username=username, email=email)
-
             # 비밀번호 재설정 토큰 생성
             token = default_token_generator.make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
