@@ -13,6 +13,7 @@ import weakref
 from .graph_chatbot import get_graph_instance, graph_ready
 from django.apps import apps
 from django.utils import timezone
+from openai import OpenAI
 
 # 전역 변수로 연결 관리
 _active_connections = weakref.WeakSet()
@@ -43,7 +44,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # URL 파라미터에서 정보 추출 (더 두드러지게 로깅)
             date_param = query_params.get("date", [None])[0]
-            schedule_id_param = query_params.get("schedule_id", [None])[0]  # 일정 ID 추가
+            schedule_id_param = query_params.get("schedule_id", [None])[
+                0
+            ]  # 일정 ID 추가
 
             print("\n=== WebSocket 연결 시작 ===")
             print(f"연결 URL 쿼리 문자열: {query_string}")
@@ -56,7 +59,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     # 나중에 사용하기 위해 인스턴스 변수로 저장
                     self.schedule_id = schedule_id
                 except ValueError:
-                    print(f"❌ 일정 ID 형식 오류: {schedule_id_param}은 유효한 정수가 아닙니다")
+                    print(
+                        f"❌ 일정 ID 형식 오류: {schedule_id_param}은 유효한 정수가 아닙니다"
+                    )
                 except Exception as e:
                     print(f"❌ schedule_id 파라미터 처리 중 오류: {e}")
             else:
@@ -151,18 +156,24 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         try:
                             from datetime import datetime
 
-                            session_date = datetime.strptime(date_param, "%Y-%m-%d").date()
+                            session_date = datetime.strptime(
+                                date_param, "%Y-%m-%d"
+                            ).date()
                             session.date = session_date
-                            print(f"✅ 세션 {self.room_name}에 날짜 저장됨: {session_date}")
+                            print(
+                                f"✅ 세션 {self.room_name}에 날짜 저장됨: {session_date}"
+                            )
                         except Exception as e:
                             print(f"❌ 날짜 변환 중 오류: {e}")
-                    
+
                     # schedule_id 파라미터 추가
                     if schedule_id_param:
                         try:
                             schedule_id = int(schedule_id_param)
                             url_params["schedule_id"] = schedule_id
-                            print(f"✅ 세션 {self.room_name}에 일정 ID 저장됨: {schedule_id}")
+                            print(
+                                f"✅ 세션 {self.room_name}에 일정 ID 저장됨: {schedule_id}"
+                            )
                         except Exception as e:
                             print(f"❌ 일정 ID 저장 중 오류: {e}")
 
@@ -205,7 +216,49 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self._active = False
         _active_connections.discard(self)
 
-    # 웹소켓에서 메세지 수신
+    # OpenAI API를 사용하여 메시지가 장소 질문/추천 관련인지 판별하는 함수
+    async def is_place_related_message(self, message):
+        """
+        OpenAI의 gpt-4o-mini 모델을 사용하여 메시지가 장소 질문/추천 관련인지 판별
+        """
+        try:
+            # OpenAI 클라이언트 초기화
+            client = OpenAI(api_key=OPENAI_API_KEY)
+
+            # 시스템 프롬프트와 사용자 메시지 설정
+            system_prompt = """
+            당신은 메시지 분류기입니다. 메시지가 여행, 장소 추천, 관광지, 여행 계획, 
+            휴가 장소, 방문할 곳, 관광, 여행지 등 장소 질문이나 추천에 관련된 내용인지 
+            판별해주세요. 판별 결과는 'yes' 또는 'no'로만 답변하세요.
+            """
+
+            # API 호출
+            response = await asyncio.to_thread(
+                client.chat.completions.create,
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": message},
+                ],
+                temperature=0,
+                max_tokens=100,
+            )
+
+            # 응답 분석
+            result = response.choices[0].message.content.strip().lower()
+            is_related = "yes" in result
+
+            print(
+                f"메시지 분류 결과: '{message}' -> {result} (장소 관련: {is_related})"
+            )
+            return is_related
+
+        except Exception as e:
+            print(f"메시지 분류 중 오류: {e}")
+            # 오류 발생 시 기본적으로 처리 계속 진행 (True 반환)
+            return True
+
+    # 웹소켓에서 메세지 수신 - 메시지 판별 로직 추가
     async def receive(self, text_data):
         """클라이언트로부터 메시지 수신"""
         print(f"받은 데이터: {text_data}")
@@ -225,6 +278,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 print("빈 메시지 무시")
                 return
 
+            # 메시지가 장소 질문/추천 관련인지 판별
+            is_place_related = await self.is_place_related_message(message)
+
             # 메시지 저장
             session, is_new = await self.save_message_and_get_response(
                 message, session_id
@@ -242,7 +298,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 },
             )
 
-            # 백그라운드에서 AI 응답 처리
+            # 장소 관련 메시지가 아닌 경우 안내 메시지 전송 후 종료
+            if not is_place_related:
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "chat_message",
+                        "message": "죄송합니다. 저는 장소 추천에만 특화되어 있습니다. 지역 및 장소 관한 질문을 해주세요.",
+                        "is_bot": True,
+                        "session_id": str(session.id),
+                    },
+                )
+                print("장소 관련 메시지가 아니므로 처리 종료")
+                return
+
+            # 백그라운드에서 AI 응답 처리 (장소 관련 메시지인 경우에만 실행)
             print("AI 응답 처리 시작")
             task = asyncio.create_task(
                 self.process_message_in_background(message, session)
@@ -331,35 +401,51 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     try:
                         # calendar_app의 Schedule 모델 가져오기
                         Schedule = apps.get_model("calendar_app", "Schedule")
-                        
+
                         # ID로 일정 조회
                         user_schedule = await database_sync_to_async(
                             lambda: Schedule.objects.filter(
                                 user=self.user, id=self.schedule_id
                             ).first()
                         )()
-                        
+
                         if user_schedule:
-                            print(f"✅ 일정 ID({self.schedule_id})로 일정 정보를 성공적으로 조회했습니다.")
-                            
+                            print(
+                                f"✅ 일정 ID({self.schedule_id})로 일정 정보를 성공적으로 조회했습니다."
+                            )
+
                             # 일정 데이터 추출
-                            if hasattr(user_schedule, "location") and user_schedule.location:
+                            if (
+                                hasattr(user_schedule, "location")
+                                and user_schedule.location
+                            ):
                                 schedule_place = user_schedule.location
-                                print(f"✅ 일정 ID에서 장소 정보 가져옴: '{schedule_place}'")
-                                
-                            if hasattr(user_schedule, "companion") and user_schedule.companion:
+                                print(
+                                    f"✅ 일정 ID에서 장소 정보 가져옴: '{schedule_place}'"
+                                )
+
+                            if (
+                                hasattr(user_schedule, "companion")
+                                and user_schedule.companion
+                            ):
                                 schedule_companion = user_schedule.companion
-                                print(f"✅ 일정 ID에서 동행자 정보 가져옴: '{schedule_companion}'")
-                                
+                                print(
+                                    f"✅ 일정 ID에서 동행자 정보 가져옴: '{schedule_companion}'"
+                                )
+
                             # 세션 날짜 업데이트
                             if hasattr(user_schedule, "date") and user_schedule.date:
                                 self.session_date = user_schedule.date
-                                print(f"✅ 일정 ID에서 날짜 정보 업데이트: {self.session_date}")
+                                print(
+                                    f"✅ 일정 ID에서 날짜 정보 업데이트: {self.session_date}"
+                                )
                         else:
-                            print(f"⚠️ ID {self.schedule_id}에 해당하는 일정을 찾을 수 없습니다.")
+                            print(
+                                f"⚠️ ID {self.schedule_id}에 해당하는 일정을 찾을 수 없습니다."
+                            )
                     except Exception as e:
                         print(f"❌ 일정 ID 기반 조회 중 오류 발생: {str(e)}")
-                
+
                 # 일정 ID로 조회에 실패한 경우 날짜로 시도
                 if not schedule_place and not schedule_companion:
                     # 날짜 데이터 준비
