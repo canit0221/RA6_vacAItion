@@ -67,52 +67,54 @@ def hybrid_retriever(state: GraphState) -> GraphState:
 
             if session:
                 # 세션에서 URL 파라미터 정보 확인
-                url_params = session.url_params if hasattr(session, "url_params") else None
+                url_params = (
+                    session.url_params if hasattr(session, "url_params") else None
+                )
                 logger.info(f"세션에서 가져온 URL 파라미터: {url_params}")
 
                 # 일정 ID를 우선적으로 사용하여 일정 정보 가져오기
-                if url_params and isinstance(url_params, dict) and "schedule_id" in url_params:
+                if (
+                    url_params
+                    and isinstance(url_params, dict)
+                    and "schedule_id" in url_params
+                ):
                     schedule_id = url_params.get("schedule_id")
                     logger.info(f"URL 파라미터에서 가져온 일정 ID: {schedule_id}")
-                    
+
                     # 일정 ID로 일정 조회
                     if schedule_id:
                         logger.info(f"일정 ID로 조회 함수 호출: ID = {schedule_id}")
                         try:
                             # 일정 ID로 일정 조회 함수 임포트
-                            from calendar_app.get_schedule_info import get_schedule_by_id
-                            
-                            schedule_place, schedule_companion = get_schedule_by_id(schedule_id)
-                            logger.info(f"일정 ID에서 가져온 장소 정보: {schedule_place}")
-                            logger.info(f"일정 ID에서 가져온 동행자 정보: {schedule_companion}")
+                            from calendar_app.get_schedule_info import (
+                                get_schedule_by_id,
+                            )
+
+                            schedule_place, schedule_companion = get_schedule_by_id(
+                                schedule_id
+                            )
+                            logger.info(
+                                f"일정 ID에서 가져온 장소 정보: {schedule_place}"
+                            )
+                            logger.info(
+                                f"일정 ID에서 가져온 동행자 정보: {schedule_companion}"
+                            )
                         except Exception as e:
                             logger.error(f"일정 ID 기반 정보 조회 중 오류 발생: {e}")
-                
-                # 일정 ID로 정보를 가져오지 못한 경우에만 날짜로 시도
-                if not schedule_place and not schedule_companion:
-                    # URL 파라미터에서 date 정보 추출 시도
-                    if url_params and isinstance(url_params, dict) and "date" in url_params:
-                        date_from_session = url_params.get("date")
-                        logger.info(f"URL 파라미터에서 가져온 날짜 정보: {date_from_session}")
-
-                        # 날짜 정보로 일정 조회 - 필요한 시점에 함수 import
-                        if date_from_session:
-                            logger.info(f"일정 조회 함수 호출: 날짜 = {date_from_session}")
-                            try:
-                                # 순환 참조를 방지하기 위해 필요한 시점에 함수 import
-                                from calendar_app.get_schedule_info import get_schedule_info
-
-                                schedule_place, schedule_companion = get_schedule_info(date_from_session)
-                                logger.info(f"일정에서 가져온 장소 정보: {schedule_place}")
-                                logger.info(f"일정에서 가져온 동행자 정보: {schedule_companion}")
-                            except Exception as e:
-                                logger.error(f"일정 정보 조회 중 오류 발생: {e}")
 
                 # 데이터베이스에서 세션의 추천 장소 목록 가져오기
-                recommended_places = session.get_recommended_places() if hasattr(session, "get_recommended_places") else []
-                logger.info(f"데이터베이스에서 가져온 이전에 추천한 장소 수: {len(recommended_places)}")
+                recommended_places = (
+                    session.get_recommended_places()
+                    if hasattr(session, "get_recommended_places")
+                    else []
+                )
+                logger.info(
+                    f"데이터베이스에서 가져온 이전에 추천한 장소 수: {len(recommended_places)}"
+                )
             else:
-                logger.info(f"세션 {session_id}를 찾을 수 없어 빈 추천 목록을 사용합니다.")
+                logger.info(
+                    f"세션 {session_id}를 찾을 수 없어 빈 추천 목록을 사용합니다."
+                )
         else:
             # 세션 정보가 없는 경우 빈 목록 사용
             logger.info("세션 ID가 없어 빈 추천 목록을 사용합니다.")
@@ -396,7 +398,7 @@ def hybrid_retriever(state: GraphState) -> GraphState:
         "가족모임",
         "회식",
     ]
-    
+
     # 향상된 쿼리 생성 함수
     def generateQuery(question, place, companion):
         logger.info(f"\n검색 쿼리 생성 중...")
@@ -427,7 +429,9 @@ def hybrid_retriever(state: GraphState) -> GraphState:
                 companion_text = f"{companion}와 함께"
 
             enhanced_query_parts.append(companion_text)
-            logger.info(f"- 동행자 정보를 쿼리에 추가: '{companion_text}' (원본: {companion})")
+            logger.info(
+                f"- 동행자 정보를 쿼리에 추가: '{companion_text}' (원본: {companion})"
+            )
 
         # 원본 질문은 마지막에 추가
         if question:
@@ -490,48 +494,54 @@ def hybrid_retriever(state: GraphState) -> GraphState:
         """쿼리에서 마이너 추천 타입 추출"""
         query = query.lower()
         minor_types = []
-        
+
         for minor_type, keywords in minor_keyword_groups.items():
             if any(keyword in query for keyword in keywords):
                 minor_types.append(minor_type)
-        
+
         return minor_types
 
     # 벡터 점수 계산 함수 (RAG_minor_sep.py의 _calculate_vector_scores 함수와 유사하게 구현)
     def calculate_vector_scores(query: str, filtered_docs: List) -> List[float]:
         """벡터 유사도 점수 계산"""
         try:
-            query_embedding = np.array(vectorstore.embedding_function.embed_query(query)).reshape(1, -1)
-            
+            query_embedding = np.array(
+                vectorstore.embedding_function.embed_query(query)
+            ).reshape(1, -1)
+
             # 문서 임베딩을 검색하고 거리 계산
-            if hasattr(vectorstore, 'index'):
+            if hasattr(vectorstore, "index"):
                 # FAISS 인덱스가 있는 경우
                 doc_indices = [i for i, doc in enumerate(docs) if doc in filtered_docs]
                 if doc_indices:
                     # 필터링된 문서 인덱스만 사용
-                    D, indices = vectorstore.index.search(query_embedding, min(len(doc_indices), 50))
+                    D, indices = vectorstore.index.search(
+                        query_embedding, min(len(doc_indices), 50)
+                    )
                     vector_scores = [1 - (d / (np.max(D[0]) + 1e-6)) for d in D[0]]
-                    
+
                     # 인덱스와 점수 매핑
                     scores_map = {}
                     for idx, score in zip(indices[0], vector_scores):
                         if idx < len(docs) and docs[idx] in filtered_docs:
                             doc_idx = filtered_docs.index(docs[idx])
                             scores_map[doc_idx] = score
-                    
+
                     # 필터링된 문서 순서에 맞게 점수 재정렬
                     final_scores = []
                     for i in range(len(filtered_docs)):
                         final_scores.append(scores_map.get(i, 0.5))  # 기본값 0.5
-                    
+
                     return final_scores
-            
+
             # 직접 유사도 계산 (fallback)
             logger.info("직접 벡터 유사도 계산 수행")
-            vectors = vectorstore.similarity_search_with_score(query, k=len(filtered_docs))
+            vectors = vectorstore.similarity_search_with_score(
+                query, k=len(filtered_docs)
+            )
             scores = [1.0 - score for _, score in vectors]
             return scores
-            
+
         except Exception as e:
             logger.error(f"벡터 점수 계산 중 오류 발생: {str(e)}")
             # 오류 발생 시 동일한 점수 반환
@@ -542,37 +552,41 @@ def hybrid_retriever(state: GraphState) -> GraphState:
         """BM25 기반 키워드 매칭 점수 계산"""
         tokenized_query = tokenize(query)
         filtered_tokenized_docs = [tokenize(doc.page_content) for doc in filtered_docs]
-        
+
         # BM25 객체 초기화
         try:
             filtered_bm25 = BM25Okapi(filtered_tokenized_docs)
-            
+
             # 기본 키워드 점수 계산
             base_scores = filtered_bm25.get_scores(tokenized_query)
-            
+
             # 문서 내용의 마이너 키워드 점수 계산
             minor_scores = []
             for doc in filtered_docs:
                 minor_score, _ = check_minor_keywords_in_doc(doc.page_content)
                 minor_scores.append(minor_score)
-            
+
             # 최종 점수 계산 (BM25 점수 * 0.5 + 마이너 키워드 점수 * 0.5)
             final_scores = [
                 base_score * 0.5 + minor_score * 0.5
                 for base_score, minor_score in zip(base_scores, minor_scores)
             ]
-            
+
             # 점수 정규화
             if final_scores:
                 max_score = max(final_scores) + 1e-6
                 normalized_scores = [score / max_score for score in final_scores]
                 return normalized_scores
             return [0.0] * len(filtered_docs)
-            
+
         except Exception as e:
             logger.error(f"키워드 점수 계산 중 오류 발생: {str(e)}")
             # 오류 발생 시 마이너 점수만 반환
-            return minor_scores if 'minor_scores' in locals() else [0.0] * len(filtered_docs)
+            return (
+                minor_scores
+                if "minor_scores" in locals()
+                else [0.0] * len(filtered_docs)
+            )
 
     # 문서 관련성 계산 함수 (RAG_minor_sep.py의 get_relevant_documents 함수와 유사하게 구현)
     def get_relevant_documents(query: str, recommended_places: List[str] = []) -> List:
@@ -596,7 +610,7 @@ def hybrid_retriever(state: GraphState) -> GraphState:
             logger.info(f"✅ 에이전트에서 추출한 장소: {place_name}")
             logger.info(f"✅ 에이전트에서 추출한 구 정보: {agent_district}")
             extracted_district = agent_district  # 에이전트에서 추출한 구 정보 우선 적용
-        
+
         if extracted_district:
             logger.info(f"\n1. 구 이름 추출: '{extracted_district}' 발견")
             if extracted_category:
@@ -615,15 +629,24 @@ def hybrid_retriever(state: GraphState) -> GraphState:
                 content = doc.page_content.lower()
                 location = doc.metadata.get("location", "").lower()
                 address = doc.metadata.get("address", "").lower()
-                if (extracted_district.lower() in content or district_name.lower() in content or
-                    extracted_district.lower() in location or district_name.lower() in location or
-                    extracted_district.lower() in address or district_name.lower() in address):
+                if (
+                    extracted_district.lower() in content
+                    or district_name.lower() in content
+                    or extracted_district.lower() in location
+                    or district_name.lower() in location
+                    or extracted_district.lower() in address
+                    or district_name.lower() in address
+                ):
                     district_filtered_docs.append(doc)
-            
-            logger.info(f"   - 구 이름으로 필터링된 문서 수: {len(district_filtered_docs)}개")
+
+            logger.info(
+                f"   - 구 이름으로 필터링된 문서 수: {len(district_filtered_docs)}개"
+            )
 
             if len(district_filtered_docs) == 0:
-                logger.info("   - 구 관련 문서를 찾지 못했습니다. 일반 벡터 검색을 수행합니다.")
+                logger.info(
+                    "   - 구 관련 문서를 찾지 못했습니다. 일반 벡터 검색을 수행합니다."
+                )
                 return vectorstore.similarity_search(query, k=3)
 
             # 2단계: 마이너 키워드로 필터링 (이벤트가 아닐 때만)
@@ -640,13 +663,17 @@ def hybrid_retriever(state: GraphState) -> GraphState:
                             found_keywords.append(keyword_type)
                     if has_minor_keyword:
                         minor_filtered_docs.append(doc)
-                
-                logger.info(f"   - 마이너 키워드로 필터링 후 문서 수: {len(minor_filtered_docs)}개")
+
+                logger.info(
+                    f"   - 마이너 키워드로 필터링 후 문서 수: {len(minor_filtered_docs)}개"
+                )
                 if len(minor_filtered_docs) >= 3:  # 충분한 결과가 있을 때만 적용
                     filtered_docs = minor_filtered_docs
                 else:
-                    logger.info("   - 마이너 키워드가 포함된 문서를 충분히 찾지 못했습니다. 구 기반 필터링 결과로 계속 진행합니다.")
-            
+                    logger.info(
+                        "   - 마이너 키워드가 포함된 문서를 충분히 찾지 못했습니다. 구 기반 필터링 결과로 계속 진행합니다."
+                    )
+
             # 3단계: 이미 추천한 장소 필터링
             logger.info("\n추천 이력 기반 필터링 중...")
             non_recommended_docs = []
@@ -674,17 +701,19 @@ def hybrid_retriever(state: GraphState) -> GraphState:
                 else:
                     excluded_count += 1
 
-            logger.info(f"   - 이미 추천된 {excluded_count}개 장소 제외 후 {len(non_recommended_docs)}개 문서 남음")
-            
+            logger.info(
+                f"   - 이미 추천된 {excluded_count}개 장소 제외 후 {len(non_recommended_docs)}개 문서 남음"
+            )
+
             # 필터링된 문서가 3개 미만인 경우 경고
             if len(non_recommended_docs) < 3:
                 logger.warning("   - 경고: 추천할 새로운 장소가 3개 미만입니다.")
-                
+
             # 필터링된 문서가 없으면 구 기반 필터링 결과 사용
             if len(non_recommended_docs) == 0:
                 logger.info("   - 추천할 새로운 장소가 없어 구 기반 필터링 결과 사용")
                 non_recommended_docs = district_filtered_docs
-            
+
             # 4. 하이브리드 점수 계산
             scoring_start = time.time()
             logger.info("\n5. 하이브리드 점수 계산 중...")
@@ -700,7 +729,9 @@ def hybrid_retriever(state: GraphState) -> GraphState:
             # 최종 점수 계산 (가중 평균)
             final_scores = [
                 (doc, vector_weight * vs + keyword_weight * ks)
-                for doc, vs, ks in zip(non_recommended_docs, vector_scores, keyword_scores)
+                for doc, vs, ks in zip(
+                    non_recommended_docs, vector_scores, keyword_scores
+                )
             ]
 
             # 점수 기준 정렬
@@ -719,13 +750,19 @@ def hybrid_retriever(state: GraphState) -> GraphState:
                         found_keywords = [kw for kw in keywords if kw in doc_content]
                         if found_keywords:
                             keywords_found.append(group)
-                            logger.info(f"   - {group} 키워드 발견: {', '.join(found_keywords[:3])}")
+                            logger.info(
+                                f"   - {group} 키워드 발견: {', '.join(found_keywords[:3])}"
+                            )
                     if keywords_found:
-                        logger.info(f"   => 최종 발견된 키워드 유형: {', '.join(keywords_found)}")
+                        logger.info(
+                            f"   => 최종 발견된 키워드 유형: {', '.join(keywords_found)}"
+                        )
                         # 마이너 키워드가 쿼리와 일치하는 경우 강조
                         matching_types = set(keywords_found) & set(minor_types)
                         if matching_types:
-                            logger.info(f"   ⭐ 쿼리와 일치하는 키워드: {', '.join(matching_types)}")
+                            logger.info(
+                                f"   ⭐ 쿼리와 일치하는 키워드: {', '.join(matching_types)}"
+                            )
                     else:
                         logger.info("   => 마이너 키워드가 발견되지 않았습니다.")
 
@@ -752,14 +789,16 @@ def hybrid_retriever(state: GraphState) -> GraphState:
                 else:
                     place_identifier = str(hash(doc.page_content))[:10]
                 new_recommended_places.append(place_identifier)
-            
+
             logger.info(f"추가된 새 추천 장소 ID: {new_recommended_places}")
 
             return top_results, new_recommended_places
 
         logger.info("   - 구 이름이 감지되지 않았습니다. 일반 벡터 검색을 수행합니다.")
         basic_results = vectorstore.similarity_search(query, k=3)
-        new_recommended_places = [str(hash(doc.page_content))[:10] for doc in basic_results]
+        new_recommended_places = [
+            str(hash(doc.page_content))[:10] for doc in basic_results
+        ]
         return basic_results, new_recommended_places
 
     # 1. 쿼리 분석
@@ -773,15 +812,19 @@ def hybrid_retriever(state: GraphState) -> GraphState:
 
     # 마이너 키워드 유형 추출
     minor_types = extract_minor_type(question)
-    
-    logger.info(f"최종 검색 조건 - 지역: {district}, 카테고리: {category}, 마이너 키워드: {', '.join(minor_types) if minor_types else '없음'}")
-    
+
+    logger.info(
+        f"최종 검색 조건 - 지역: {district}, 카테고리: {category}, 마이너 키워드: {', '.join(minor_types) if minor_types else '없음'}"
+    )
+
     # 강화된 쿼리 생성
     enhanced_query = generateQuery(question, schedule_place, schedule_companion)
     logger.info(f"생성된 향상된 쿼리: '{enhanced_query}'")
 
     # RAG_minor_sep.py 스타일의 get_relevant_documents 함수 사용하여 검색 수행
-    retrieved_docs, new_recommended_places = get_relevant_documents(enhanced_query, recommended_places)
+    retrieved_docs, new_recommended_places = get_relevant_documents(
+        enhanced_query, recommended_places
+    )
 
     # 세션에 새로 추가된 장소들을 저장
     if session_id and session_id != "default_session" and new_recommended_places:
@@ -791,18 +834,30 @@ def hybrid_retriever(state: GraphState) -> GraphState:
                 # 새로 추천된 장소 추가
                 for place in new_recommended_places:
                     session.add_recommended_place(place)
-                logger.info(f"세션 {session_id}에 {len(new_recommended_places)}개의 새로운 장소가 저장되었습니다.")
+                logger.info(
+                    f"세션 {session_id}에 {len(new_recommended_places)}개의 새로운 장소가 저장되었습니다."
+                )
             else:
-                logger.info(f"세션 {session_id}을 찾을 수 없어 추천 장소를 저장하지 못했습니다.")
+                logger.info(
+                    f"세션 {session_id}을 찾을 수 없어 추천 장소를 저장하지 못했습니다."
+                )
         except Exception as e:
             logger.error(f"추천 장소 저장 중 오류 발생: {e}")
 
     # 처리 시간 출력
     total_time = time.time() - start_time
     logger.info(f"\n=== 검색 완료 (총 {total_time:.2f}초) ===")
-    
+
     # 현재까지 추천한 장소 목록
-    all_recommended_places = recommended_places + new_recommended_places if recommended_places else new_recommended_places
+    all_recommended_places = (
+        recommended_places + new_recommended_places
+        if recommended_places
+        else new_recommended_places
+    )
     logger.info(f"현재까지 추천한 장소 수: {len(all_recommended_places)}")
 
-    return {**state, "retrieved_docs": retrieved_docs, "recommended_places": all_recommended_places}
+    return {
+        **state,
+        "retrieved_docs": retrieved_docs,
+        "recommended_places": all_recommended_places,
+    }
