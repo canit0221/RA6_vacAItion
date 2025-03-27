@@ -352,53 +352,6 @@ def hybrid_retriever(state: GraphState) -> GraphState:
         ],
     }
 
-    # 중요 맛집 키워드 확장
-    important_food_keywords = [
-        "맛집",
-        "음식점",
-        "식당",
-        "레스토랑",
-        "맛있는",
-        "먹거리",
-        "메뉴",
-        "요리",
-        "맛있게",
-        "맛집추천",
-        "배고픈",
-        "배고파",
-        "먹을만한",
-        "식사",
-        "저녁",
-        "점심",
-        "브런치",
-        "아침",
-        "식도락",
-        "음식",
-        "분위기좋은",
-        "유명한",
-        "유명 맛집",
-        "맛있다",
-        "맛집 추천",
-        "맛있을",
-        "푸짐한",
-        "맛있어",
-        "맛있게",
-        "맛집 여행",
-        "맛있어요",
-        "맛있다고",
-        "추천 맛집",
-        "인기 맛집",
-        "인기",
-        "인기있는",
-        "맛도",
-        "맛도 있고",
-        "데이트",
-        "데이트코스",
-        "가족",
-        "가족모임",
-        "회식",
-    ]
-
     # 향상된 쿼리 생성 함수
     def generateQuery(question, place, companion):
         logger.info(f"\n검색 쿼리 생성 중...")
@@ -456,19 +409,6 @@ def hybrid_retriever(state: GraphState) -> GraphState:
         for cat_name, keywords in categories.items():
             if any(keyword in query for keyword in keywords):
                 return cat_name
-        return None
-
-    # 구 이름 추출 함수
-    def extract_district(query: str) -> str:
-        """쿼리에서 서울시 구 이름을 추출"""
-        for district in districts:
-            if district in query:
-                return district
-
-            # '서울 ' 접두사 없이 구 이름만 검색
-            district_name = district.replace("서울 ", "")
-            if district_name in query and "구" in district_name:
-                return district
         return None
 
     # 문서에서 마이너 키워드 점수 계산 함수 (RAG_minor_sep.py 방식으로 수정)
@@ -597,9 +537,7 @@ def hybrid_retriever(state: GraphState) -> GraphState:
         logger.info(f"이전 추천 장소 수: {len(recommended_places)}")
 
         # 1. 쿼리에서 구 이름과 카테고리 추출
-        extracted_district = extract_district(query) or district
         extracted_category = extract_category(query) or category
-        minor_types = extract_minor_type(query)
 
         # 위치 에이전트를 사용하여 장소 기반 구 정보 추출
         place_info = get_place_info(query)
@@ -609,15 +547,7 @@ def hybrid_retriever(state: GraphState) -> GraphState:
         if agent_district:
             logger.info(f"✅ 에이전트에서 추출한 장소: {place_name}")
             logger.info(f"✅ 에이전트에서 추출한 구 정보: {agent_district}")
-            extracted_district = agent_district  # 에이전트에서 추출한 구 정보 우선 적용
-
-        if extracted_district:
-            logger.info(f"\n1. 구 이름 추출: '{extracted_district}' 발견")
-            if extracted_category:
-                logger.info(f"2. 카테고리 추출: '{extracted_category}' 발견")
-            if minor_types and extracted_category not in ["전시", "공연", "콘서트"]:
-                logger.info(f"3. 마이너 키워드 추출: {', '.join(minor_types)} 발견")
-            district_name = extracted_district.replace("서울 ", "")
+            extracted_district = agent_district
 
             # 3. 키워드 기반 필터링
             keyword_start = time.time()
@@ -631,11 +561,8 @@ def hybrid_retriever(state: GraphState) -> GraphState:
                 address = doc.metadata.get("address", "").lower()
                 if (
                     extracted_district.lower() in content
-                    or district_name.lower() in content
                     or extracted_district.lower() in location
-                    or district_name.lower() in location
                     or extracted_district.lower() in address
-                    or district_name.lower() in address
                 ):
                     district_filtered_docs.append(doc)
 
@@ -800,11 +727,6 @@ def hybrid_retriever(state: GraphState) -> GraphState:
             str(hash(doc.page_content))[:10] for doc in basic_results
         ]
         return basic_results, new_recommended_places
-
-    # 1. 쿼리 분석
-    # 쿼리에서 구 정보가 없는 경우, query_info에서 가져온 값 사용
-    if not district:
-        district = extract_district(question)
 
     # 카테고리 정보가 없는 경우, 쿼리에서 추출
     if not category:
