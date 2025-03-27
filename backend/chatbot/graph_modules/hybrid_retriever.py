@@ -13,11 +13,10 @@ import logging
 from django.apps import apps
 import asyncio
 from channels.db import database_sync_to_async
-import json
 from datetime import datetime
 
 # 위치 에이전트 모듈 가져오기
-from .location_agent import extract_district_from_place, get_place_info
+from .location_agent import get_place_info
 
 # 로거 설정
 logger = logging.getLogger(__name__)
@@ -428,58 +427,32 @@ def hybrid_retriever(state: GraphState) -> GraphState:
                     found_keyword_types.append(keyword_type)
 
         return min(score, 1.0), found_keyword_types  # 최대 점수는 1.0
-
-    # 쿼리에서 마이너 키워드 타입 추출 함수 (RAG_minor_sep.py의 _extract_minor_type 함수와 유사하게 구현)
-    def extract_minor_type(query: str) -> List[str]:
-        """쿼리에서 마이너 추천 타입 추출"""
-        query = query.lower()
-        minor_types = []
-
-        for minor_type, keywords in minor_keyword_groups.items():
-            if any(keyword in query for keyword in keywords):
-                minor_types.append(minor_type)
-
-        return minor_types
-
+    
     # 벡터 점수 계산 함수 (RAG_minor_sep.py의 _calculate_vector_scores 함수와 유사하게 구현)
     def calculate_vector_scores(query: str, filtered_docs: List) -> List[float]:
         """벡터 유사도 점수 계산"""
         try:
+            start_time = time.time()
+            
+            # 모든 문서에 대해 직접 유사도 계산 (제한 없음)
+            logger.info(f"직접 벡터 유사도 계산 수행 (문서 {len(filtered_docs)}개)")
+            
+            # 효율적인 계산을 위한 최적화 - 별도 API 호출 최소화
             query_embedding = np.array(
                 vectorstore.embedding_function.embed_query(query)
             ).reshape(1, -1)
-
-            # 문서 임베딩을 검색하고 거리 계산
-            if hasattr(vectorstore, "index"):
-                # FAISS 인덱스가 있는 경우
-                doc_indices = [i for i, doc in enumerate(docs) if doc in filtered_docs]
-                if doc_indices:
-                    # 필터링된 문서 인덱스만 사용
-                    D, indices = vectorstore.index.search(
-                        query_embedding, min(len(doc_indices), 50)
-                    )
-                    vector_scores = [1 - (d / (np.max(D[0]) + 1e-6)) for d in D[0]]
-
-                    # 인덱스와 점수 매핑
-                    scores_map = {}
-                    for idx, score in zip(indices[0], vector_scores):
-                        if idx < len(docs) and docs[idx] in filtered_docs:
-                            doc_idx = filtered_docs.index(docs[idx])
-                            scores_map[doc_idx] = score
-
-                    # 필터링된 문서 순서에 맞게 점수 재정렬
-                    final_scores = []
-                    for i in range(len(filtered_docs)):
-                        final_scores.append(scores_map.get(i, 0.5))  # 기본값 0.5
-
-                    return final_scores
-
-            # 직접 유사도 계산 (fallback)
-            logger.info("직접 벡터 유사도 계산 수행")
+            
+            # 모든 문서에 대해 직접 검색 수행
             vectors = vectorstore.similarity_search_with_score(
                 query, k=len(filtered_docs)
             )
+            
+            # 거리를 유사도로 변환
             scores = [1.0 - score for _, score in vectors]
+            
+            end_time = time.time()
+            logger.info(f"벡터 점수 계산 완료: {end_time - start_time:.2f}초 소요")
+            
             return scores
 
         except Exception as e:
@@ -537,7 +510,7 @@ def hybrid_retriever(state: GraphState) -> GraphState:
         logger.info(f"이전 추천 장소 수: {len(recommended_places)}")
 
         # 1. 쿼리에서 구 이름과 카테고리 추출
-        extracted_category = extract_category(query) or category
+        extracted_category = extract_category(query)
 
         # 위치 에이전트를 사용하여 장소 기반 구 정보 추출
         place_info = get_place_info(query)
@@ -556,14 +529,8 @@ def hybrid_retriever(state: GraphState) -> GraphState:
             # 1단계: 구 이름으로 필터링
             district_filtered_docs = []
             for doc in docs:
-                content = doc.page_content.lower()
-                location = doc.metadata.get("location", "").lower()
-                address = doc.metadata.get("address", "").lower()
-                if (
-                    extracted_district.lower() in content
-                    or extracted_district.lower() in location
-                    or extracted_district.lower() in address
-                ):
+                content = doc.page_content
+                if extracted_district in content:
                     district_filtered_docs.append(doc)
 
             logger.info(
@@ -683,12 +650,6 @@ def hybrid_retriever(state: GraphState) -> GraphState:
                     if keywords_found:
                         logger.info(
                             f"   => 최종 발견된 키워드 유형: {', '.join(keywords_found)}"
-                        )
-                        # 마이너 키워드가 쿼리와 일치하는 경우 강조
-                        matching_types = set(keywords_found) & set(minor_types)
-                        if matching_types:
-                            logger.info(
-                                f"   ⭐ 쿼리와 일치하는 키워드: {', '.join(matching_types)}"
                             )
                     else:
                         logger.info("   => 마이너 키워드가 발견되지 않았습니다.")
@@ -732,11 +693,8 @@ def hybrid_retriever(state: GraphState) -> GraphState:
     if not category:
         category = extract_category(question)
 
-    # 마이너 키워드 유형 추출
-    minor_types = extract_minor_type(question)
-
     logger.info(
-        f"최종 검색 조건 - 지역: {district}, 카테고리: {category}, 마이너 키워드: {', '.join(minor_types) if minor_types else '없음'}"
+        f"최종 검색 조건 - 지역: {district}, 카테고리: {category}"
     )
 
     # 강화된 쿼리 생성
