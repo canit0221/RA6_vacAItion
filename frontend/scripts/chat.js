@@ -1066,7 +1066,7 @@ function addPlaceToSchedule(date, placeName, placeLocation, placeCategory, place
         
         // 3초 후 일정 페이지로 이동할지 물어보기
         setTimeout(() => {
-            if (confirm(`"${placeName}"이(가) 추천 장소 목록에 추가되었습니다.\n\n※ 주의: 이 장소는 아직 실제 일정에 추가되지 않았습니다.\n추천 장소 목록에만 추가되었으며, 실제 일정은 별도로 직접 작성해야 합니다.\n\n추천 장소 목록 페이지로 이동하시겠습니까?`)) {
+            if (confirm(`"${placeName}"이(가) 추천 장소 목록에 추가되었습니다.\n\n추천 장소 목록 페이지로 이동하시겠습니까?`)) {
                 window.location.href = `add-schedule.html?date=${date}&added=true`;
             }
         }, 500);
