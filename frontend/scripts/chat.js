@@ -260,9 +260,16 @@ class ChatWebSocket {
             const dateParam = urlParams.get('date');
             const locationParam = urlParams.get('location');
             const companionParam = urlParams.get('companion');
+            const scheduleIdParam = urlParams.get('schedule_id'); // 일정 ID 파라미터 추가
             
             // WebSocket URL 생성 (기존 URL에 새 파라미터 추가)
             let wsUrl = `wss://vacaition.life/ws/chat/${this.sessionId}/?token=${accessToken}`;
+            
+            // schedule_id 파라미터 추가 (우선적으로 추가 - 더 중요한 정보)
+            if (scheduleIdParam) {
+                wsUrl += `&schedule_id=${encodeURIComponent(scheduleIdParam)}`;
+                console.log('WebSocket URL에 schedule_id 파라미터 추가:', scheduleIdParam);
+            }
             
             // date 파라미터 추가
             if (dateParam) {

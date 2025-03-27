@@ -70,23 +70,43 @@ def hybrid_retriever(state: GraphState) -> GraphState:
                 url_params = session.url_params if hasattr(session, "url_params") else None
                 logger.info(f"세션에서 가져온 URL 파라미터: {url_params}")
 
-                # URL 파라미터에서 date 정보 추출 시도
-                if url_params and isinstance(url_params, dict) and "date" in url_params:
-                    date_from_session = url_params.get("date")
-                    logger.info(f"URL 파라미터에서 가져온 날짜 정보: {date_from_session}")
-
-                    # 날짜 정보로 일정 조회 - 필요한 시점에 함수 import
-                    if date_from_session:
-                        logger.info(f"일정 조회 함수 호출: 날짜 = {date_from_session}")
+                # 일정 ID를 우선적으로 사용하여 일정 정보 가져오기
+                if url_params and isinstance(url_params, dict) and "schedule_id" in url_params:
+                    schedule_id = url_params.get("schedule_id")
+                    logger.info(f"URL 파라미터에서 가져온 일정 ID: {schedule_id}")
+                    
+                    # 일정 ID로 일정 조회
+                    if schedule_id:
+                        logger.info(f"일정 ID로 조회 함수 호출: ID = {schedule_id}")
                         try:
-                            # 순환 참조를 방지하기 위해 필요한 시점에 함수 import
-                            from calendar_app.get_schedule_info import get_schedule_info
-
-                            schedule_place, schedule_companion = get_schedule_info(date_from_session)
-                            logger.info(f"일정에서 가져온 장소 정보: {schedule_place}")
-                            logger.info(f"일정에서 가져온 동행자 정보: {schedule_companion}")
+                            # 일정 ID로 일정 조회 함수 임포트
+                            from calendar_app.get_schedule_info import get_schedule_by_id
+                            
+                            schedule_place, schedule_companion = get_schedule_by_id(schedule_id)
+                            logger.info(f"일정 ID에서 가져온 장소 정보: {schedule_place}")
+                            logger.info(f"일정 ID에서 가져온 동행자 정보: {schedule_companion}")
                         except Exception as e:
-                            logger.error(f"일정 정보 조회 중 오류 발생: {e}")
+                            logger.error(f"일정 ID 기반 정보 조회 중 오류 발생: {e}")
+                
+                # 일정 ID로 정보를 가져오지 못한 경우에만 날짜로 시도
+                if not schedule_place and not schedule_companion:
+                    # URL 파라미터에서 date 정보 추출 시도
+                    if url_params and isinstance(url_params, dict) and "date" in url_params:
+                        date_from_session = url_params.get("date")
+                        logger.info(f"URL 파라미터에서 가져온 날짜 정보: {date_from_session}")
+
+                        # 날짜 정보로 일정 조회 - 필요한 시점에 함수 import
+                        if date_from_session:
+                            logger.info(f"일정 조회 함수 호출: 날짜 = {date_from_session}")
+                            try:
+                                # 순환 참조를 방지하기 위해 필요한 시점에 함수 import
+                                from calendar_app.get_schedule_info import get_schedule_info
+
+                                schedule_place, schedule_companion = get_schedule_info(date_from_session)
+                                logger.info(f"일정에서 가져온 장소 정보: {schedule_place}")
+                                logger.info(f"일정에서 가져온 동행자 정보: {schedule_companion}")
+                            except Exception as e:
+                                logger.error(f"일정 정보 조회 중 오류 발생: {e}")
 
                 # 데이터베이스에서 세션의 추천 장소 목록 가져오기
                 recommended_places = session.get_recommended_places() if hasattr(session, "get_recommended_places") else []

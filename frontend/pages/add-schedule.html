@@ -314,9 +314,54 @@
                     // 날짜 형식화
                     const normalizedDate = dateParam || new Date().toISOString().split('T')[0];
                     
-                    // 날씨 정보 가져오기
+                    // 일정 ID 가져오기 및 파라미터 추가
                     (async () => {
-                        try {                            
+                        try {
+                            // 정규화된 날짜로 일정 정보 가져오기
+                            const accessToken = localStorage.getItem('access_token');
+                            if (accessToken && normalizedDate) {
+                                const response = await fetch(`${BACKEND_BASE_URL}/calendar/schedules/?date=${normalizedDate}`, {
+                                    headers: {'Authorization': `Bearer ${accessToken}`}
+                                });
+                                
+                                if (response.ok) {
+                                    const data = await response.json();
+                                    let schedules = [];
+                                    
+                                    // 데이터 형식 처리
+                                    if (data.schedules && Array.isArray(data.schedules)) {
+                                        schedules = data.schedules;
+                                    } else if (Array.isArray(data)) {
+                                        schedules = data;
+                                    } else if (typeof data === 'object' && data !== null && data.id) {
+                                        schedules = [data];
+                                    }
+                                    
+                                    // 날짜 파싱
+                                    if (normalizedDate && schedules.length > 0) {
+                                        const [year, month, day] = normalizedDate.split('-').map(num => parseInt(num, 10));
+                                        
+                                        // 일치하는 일정 찾기
+                                        for (const schedule of schedules) {
+                                            if (!schedule.date) continue;
+                                            
+                                            // 날짜 정규화
+                                            const scheduleDate = schedule.date.substring(0, 10);
+                                            const [scheduleYear, scheduleMonth, scheduleDay] = scheduleDate.split('-').map(num => parseInt(num, 10));
+                                            
+                                            if (scheduleYear === year && scheduleMonth === month && scheduleDay === day) {
+                                                // 일정 ID 찾음
+                                                console.log(`%c[일정 정보]`, 'background: #9c27b0; color: white; padding: 4px; border-radius: 4px;', `ID: ${schedule.id}, 날짜: ${scheduleDate}`);
+                                                
+                                                // 일정 ID를 URL 파라미터에 추가
+                                                params.append('schedule_id', schedule.id);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
                             // 날씨 정보 비동기 요청
                             const weatherData = await window.fetchWeatherForDate(normalizedDate);
                             

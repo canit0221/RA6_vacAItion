@@ -11,6 +11,14 @@ from django.apps import apps
 import asyncio
 from channels.db import database_sync_to_async
 from functools import wraps
+import re
+import aiohttp
+import logging
+from .data_loader import load_data
+from langchain_openai import OpenAIEmbeddings
+
+# 로거 설정
+logger = logging.getLogger(__name__)
 
 # 환경 변수 명시적 로드
 def load_env_variables():
@@ -28,28 +36,69 @@ def load_env_variables():
 @database_sync_to_async
 def get_session_params(session_id):
     """
-    세션에서 URL 파라미터를 가져오는 함수 (비동기 처리)
+    세션 ID로부터 URL 파라미터를 비동기적으로 가져오는 함수
     
     Args:
-        session_id: 세션 ID
+        session_id: 채팅 세션 ID
         
     Returns:
-        URL 파라미터 딕셔너리
+        dict: URL 파라미터 딕셔너리 또는 None
     """
-    if not session_id or session_id == "default_session":
-        return None
-        
     try:
-        ChatSession = apps.get_model('chatbot', 'ChatSession')
+        ChatSession = apps.get_model("chatbot", "ChatSession")
         session = ChatSession.objects.filter(id=session_id).first()
         
-        if session and hasattr(session, 'url_params'):
+        if session and hasattr(session, "url_params"):
             return session.url_params
-            
+        return None
     except Exception as e:
-        print(f"세션 URL 파라미터 로드 중 오류 발생: {e}")
+        print(f"URL 파라미터 로드 중 오류 발생: {e}")
+        return None
+
+# 위치 정보를 날씨 API에 적합한 형태로 변환
+def convert_location_for_weather(location):
+    """
+    위치 정보를 날씨 API에 적합한 형태로 변환
+    
+    Args:
+        location: 위치 문자열
         
-    return None
+    Returns:
+        str: 변환된 위치 문자열
+    """
+    # 특정 지역 변환
+    location_mapping = {
+        "서울": "서울",
+        "경기": "경기",
+        "인천": "인천",
+        "강원": "강원",
+        "충북": "충청북도",
+        "충남": "충청남도",
+        "대전": "대전",
+        "경북": "경상북도",
+        "경남": "경상남도",
+        "대구": "대구",
+        "울산": "울산",
+        "부산": "부산",
+        "전북": "전라북도",
+        "전남": "전라남도",
+        "광주": "광주",
+        "제주": "제주"
+    }
+    
+    # 간단한 변환 시도
+    for key, value in location_mapping.items():
+        if key in location:
+            return value
+    
+    # 특정 구 처리 (서울)
+    seoul_districts = ["종로구", "중구", "용산구", "성동구", "광진구", "동대문구", "중랑구", "성북구", "강북구", "도봉구", "노원구", "은평구", "서대문구", "마포구", "양천구", "강서구", "구로구", "금천구", "영등포구", "동작구", "관악구", "서초구", "강남구", "송파구", "강동구"]
+    for district in seoul_districts:
+        if district in location:
+            return "서울"
+    
+    # 기본값
+    return location
 
 # get_schedule_info 함수를 비동기적으로 호출하기 위한 래퍼 함수
 @database_sync_to_async
@@ -68,6 +117,25 @@ def get_schedule_info_async(date_str):
         return get_schedule_info(date_str)
     except Exception as e:
         print(f"일정 정보 비동기 로드 중 오류 발생: {e}")
+        return None, None
+
+# ID로 일정 정보를 비동기적으로 가져오는 래퍼 함수 추가
+@database_sync_to_async
+def get_schedule_by_id_async(schedule_id):
+    """
+    ID로 일정 정보를 비동기적으로 가져오는 함수
+    
+    Args:
+        schedule_id: 일정 ID
+        
+    Returns:
+        (장소, 동행자) 튜플
+    """
+    try:
+        from calendar_app.get_schedule_info import get_schedule_by_id
+        return get_schedule_by_id(schedule_id)
+    except Exception as e:
+        print(f"ID로 일정 정보 비동기 로드 중 오류 발생: {e}")
         return None, None
 
 # 일정 정보와 채팅 내용을 통합한 향상된 쿼리 생성 함수 (hybrid_retriever와 동일한 방식)
@@ -122,7 +190,7 @@ def generateQuery(question, place, companion):
     enhanced_query = " ".join(enhanced_query_parts)
     
     if not enhanced_query:
-        enhanced_query = question or ""
+        enhanced_query = question
         print(f"- 향상된 쿼리 구성 실패, 원본 질문 사용: '{enhanced_query}'")
     else:
         print(f"- 최종 향상된 쿼리: '{enhanced_query}'")
@@ -132,32 +200,17 @@ def generateQuery(question, place, companion):
 async def naver_search(state: GraphState) -> GraphState:
     """네이버 검색 노드
     
-    네이버 지역 검색 API를 통해 장소 정보를 검색합니다.
-    검색 결과는 최대 3개까지 반환합니다.
+    유저의 질문에 대한 실시간 정보를 네이버 검색 API를 통해 검색합니다.
     
     Args:
         state: 현재 그래프 상태
     
     Returns:
-        업데이트된 그래프 상태
+        검색 결과가 추가된 그래프 상태
     """
-    print("\n=== 네이버 검색 시작 ===")
     
     question = state["question"]
-    
-    # 이벤트 쿼리인 경우 검색 스킵
-    is_event = state.get("is_event", False)
-    if is_event:
-        print("이벤트 쿼리이므로 네이버 검색을 건너뜁니다.")
-        return {**state, "naver_results": []}
-    
-    # 환경 변수 명시적 로드
-    naver_client_id, naver_client_secret = load_env_variables()
-    
-    # API 키가 없으면 빈 결과 반환
-    if not naver_client_id or not naver_client_secret:
-        print("네이버 API 키가 설정되지 않았습니다.")
-        return {**state, "naver_results": []}
+    print(f"=== 네이버 검색 시작: '{question}' ===")
     
     try:
         import aiohttp
@@ -175,21 +228,39 @@ async def naver_search(state: GraphState) -> GraphState:
             url_params = await get_session_params(session_id)
             print(f"세션에서 가져온 URL 파라미터: {url_params}")
             
-            # URL 파라미터에서 date 정보 추출
-            if url_params and isinstance(url_params, dict) and 'date' in url_params:
-                date_from_session = url_params.get('date')
-                print(f"URL 파라미터에서 가져온 날짜 정보: {date_from_session}")
+            # 일정 ID를 우선적으로 사용하여 일정 정보 가져오기
+            if url_params and isinstance(url_params, dict) and 'schedule_id' in url_params:
+                schedule_id = url_params.get('schedule_id')
+                print(f"URL 파라미터에서 가져온 일정 ID: {schedule_id}")
                 
-                # 날짜 정보로 일정 조회 (비동기 처리)
-                if date_from_session:
-                    print(f"일정 조회 함수 호출 (비동기): 날짜 = {date_from_session}")
+                # 일정 ID로 일정 조회 (비동기 처리)
+                if schedule_id:
+                    print(f"일정 조회 함수 호출 (비동기): 일정 ID = {schedule_id}")
                     try:
                         # 비동기 래퍼를 통해 함수 호출
-                        schedule_place, schedule_companion = await get_schedule_info_async(date_from_session)
-                        print(f"일정에서 가져온 장소 정보: {schedule_place}")
-                        print(f"일정에서 가져온 동행자 정보: {schedule_companion}")
+                        schedule_place, schedule_companion = await get_schedule_by_id_async(schedule_id)
+                        print(f"일정 ID에서 가져온 장소 정보: {schedule_place}")
+                        print(f"일정 ID에서 가져온 동행자 정보: {schedule_companion}")
                     except Exception as e:
-                        print(f"일정 정보 조회 중 오류 발생: {e}")
+                        print(f"일정 ID 기반 정보 조회 중 오류 발생: {e}")
+            
+            # 일정 ID로 정보를 가져오지 못한 경우 날짜로 시도
+            if not schedule_place and not schedule_companion:
+                # URL 파라미터에서 date 정보 추출
+                if url_params and isinstance(url_params, dict) and 'date' in url_params:
+                    date_from_session = url_params.get('date')
+                    print(f"URL 파라미터에서 가져온 날짜 정보: {date_from_session}")
+                    
+                    # 날짜 정보로 일정 조회 (비동기 처리)
+                    if date_from_session:
+                        print(f"일정 조회 함수 호출 (비동기): 날짜 = {date_from_session}")
+                        try:
+                            # 비동기 래퍼를 통해 함수 호출
+                            schedule_place, schedule_companion = await get_schedule_info_async(date_from_session)
+                            print(f"일정에서 가져온 장소 정보: {schedule_place}")
+                            print(f"일정에서 가져온 동행자 정보: {schedule_companion}")
+                        except Exception as e:
+                            print(f"일정 정보 조회 중 오류 발생: {e}")
         
         # hybrid_retriever와 동일한 방식으로 향상된 쿼리 생성
         enhanced_query = generateQuery(question, schedule_place, schedule_companion)

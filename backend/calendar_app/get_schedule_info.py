@@ -49,6 +49,42 @@ def get_schedule_info(date_str):
         print(f"오류 발생: {e}")
         return None, None
 
+def get_schedule_by_id(schedule_id):
+    """
+    주어진 ID의 일정 정보(장소, 동행)를 가져옵니다.
+    
+    Args:
+        schedule_id: 일정 ID
+    
+    Returns:
+        tuple: (위치, 동행) 또는 일정이 없으면 (None, None)
+    """
+    try:
+        # Django가 초기화된 상태에서 모델 import
+        from calendar_app.models import Schedule
+        
+        # ID로 일정 조회
+        try:
+            schedule = Schedule.objects.get(id=schedule_id)
+            
+            print(f"ID '{schedule_id}'의 일정 정보:")
+            print(f"  - 날짜: {schedule.date}")
+            print(f"  - 장소: {schedule.location}")
+            print(f"  - 동행: {schedule.companion}")
+            if schedule.memo:
+                print(f"  - 메모: {schedule.memo}")
+            
+            # 일정의 장소와 동행 반환
+            return schedule.location, schedule.companion
+            
+        except Schedule.DoesNotExist:
+            print(f"ID '{schedule_id}'의 일정이 없습니다.")
+            return None, None
+            
+    except Exception as e:
+        print(f"오류 발생: {e}")
+        return None, None
+
 if __name__ == "__main__":
     # 직접 실행할 때는 Django 초기화 필요
     import django
