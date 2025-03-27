@@ -459,7 +459,24 @@ class ChatWebSocket {
 // 싱글톤 인스턴스 저장을 위한 정적 속성
 ChatWebSocket.instance = null;
 
-// 채팅 메시지 표시 함수
+// URL을 클릭 가능한 링크로 변환하는 함수
+function convertUrlsToLinks(text) {
+    if (!text) return text;
+    
+    // URL 패턴 (http, https, www로 시작하는 URL)
+    const urlPattern = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/gi;
+    const wwwPattern = /(^|[^\/])(www\.[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/gi;
+    
+    // http/https로 시작하는 URL 치환
+    let processedText = text.replace(urlPattern, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+    
+    // www로 시작하는 URL 치환 (http://를 추가)
+    processedText = processedText.replace(wwwPattern, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer">$2</a>');
+    
+    return processedText;
+}
+
+// 채팅 메시지 표시 함수 수정
 function displayChatMessages(messages) {
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) return;
@@ -489,6 +506,8 @@ function displayChatMessages(messages) {
                     console.log('HTML 태그가 발견되어 직접 렌더링:', message.content.substring(0, 50) + '...');
                     // 줄바꿈 문자(\n)를 <br> 태그로 변환 (HTML 태그 사용 시)
                     let content = message.content.replace(/\n/g, '<br>');
+                    // URL을 클릭 가능한 링크로 변환
+                    content = convertUrlsToLinks(content);
                     contentDiv.innerHTML = content;
                 } 
                 // 마크다운 렌더링을 위한 설정
@@ -507,8 +526,8 @@ function displayChatMessages(messages) {
                     console.log('마크다운으로 처리됨 (히스토리):', message.content.substring(0, 50) + '...');
                 } else {
                     console.warn('Marked 라이브러리가 로드되지 않았습니다.');
-                    // 마크다운 없이 표시할 때도 줄바꿈 보존
-                    contentDiv.innerHTML = message.content.replace(/\n/g, '<br>');
+                    // 마크다운 없이 표시할 때도 줄바꿈 보존하고 URL 링크 변환
+                    contentDiv.innerHTML = convertUrlsToLinks(message.content.replace(/\n/g, '<br>'));
                 }
                 
                 // 봇 메시지에서 추천 장소 처리 (+ 버튼 추가)
@@ -519,12 +538,12 @@ function displayChatMessages(messages) {
                 
             } catch (error) {
                 console.error('마크다운 처리 중 오류:', error);
-                // 오류 발생 시에도 줄바꿈 보존
-                contentDiv.innerHTML = message.content.replace(/\n/g, '<br>');
+                // 오류 발생 시에도 줄바꿈 보존하고 URL 링크 변환
+                contentDiv.innerHTML = convertUrlsToLinks(message.content.replace(/\n/g, '<br>'));
             }
         } else {
-            // 사용자 메시지도 줄바꿈 보존
-            contentDiv.innerHTML = message.content.replace(/\n/g, '<br>');
+            // 사용자 메시지도 줄바꿈 보존하고 URL 링크 변환
+            contentDiv.innerHTML = convertUrlsToLinks(message.content.replace(/\n/g, '<br>'));
         }
         
         messageDiv.appendChild(contentDiv);
@@ -538,7 +557,7 @@ function displayChatMessages(messages) {
     setTimeout(checkAndAddButtonListeners, 100);
 }
 
-// 메시지 표시 함수
+// 메시지 표시 함수 수정
 function displayMessage(content, isBot, isStreaming = false) {
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) {
@@ -564,6 +583,8 @@ function displayMessage(content, isBot, isStreaming = false) {
                 
                 // 줄바꿈 문자(\n)를 <br> 태그로 변환 (HTML 태그 사용 시)
                 content = content.replace(/\n/g, '<br>');
+                // URL을 클릭 가능한 링크로 변환
+                content = convertUrlsToLinks(content);
                 contentDiv.innerHTML = content;
                 
                 // 개발자 도구에서 HTML 확인
@@ -607,12 +628,12 @@ function displayMessage(content, isBot, isStreaming = false) {
             }
         } catch (error) {
             console.error('메시지 처리 중 오류:', error);
-            // 오류 발생 시에도 줄바꿈 보존
-            contentDiv.innerHTML = content.replace(/\n/g, '<br>');
+            // 오류 발생 시에도 줄바꿈 보존하고 URL 링크 변환
+            contentDiv.innerHTML = convertUrlsToLinks(content.replace(/\n/g, '<br>'));
         }
     } else {
-        // 사용자 메시지도 줄바꿈 보존
-        contentDiv.innerHTML = content.replace(/\n/g, '<br>');
+        // 사용자 메시지도 줄바꿈 보존하고 URL 링크 변환
+        contentDiv.innerHTML = convertUrlsToLinks(content.replace(/\n/g, '<br>'));
     }
     
     messageDiv.appendChild(contentDiv);
@@ -788,7 +809,7 @@ function enhancePlaceRecommendations(contentDiv) {
                 
                 // 버튼 생성 및 추가
     const addButton = document.createElement('button');
-    addButton.innerHTML = '+';
+    addButton.innerHTML = '일정으로 추가하기';
     addButton.className = 'add-to-schedule-btn';
     addButton.title = '일정에 추가';
     addButton.setAttribute('aria-label', '일정에 추가');
@@ -898,7 +919,7 @@ function addAddButton(titleElement, placeName) {
     
     // 버튼 생성
     const addButton = document.createElement('button');
-    addButton.innerHTML = '+';
+    addButton.innerHTML = '일정으로 추가';
     addButton.className = 'add-to-schedule-btn';
     addButton.title = '일정에 추가';
     addButton.setAttribute('aria-label', '일정에 추가');
