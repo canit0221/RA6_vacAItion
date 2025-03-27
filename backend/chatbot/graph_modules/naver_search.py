@@ -21,17 +21,12 @@ from langchain_openai import OpenAIEmbeddings
 logger = logging.getLogger(__name__)
 
 
-# 환경 변수 명시적 로드
-def load_env_variables():
-    """환경 변수를 명시적으로 로드"""
-    # .env 파일 로드
-    load_dotenv()
+# .env 파일 로드
+load_dotenv()
 
-    # 환경 변수 확인
-    naver_client_id = os.getenv("NAVER_CLIENT_ID")
-    naver_client_secret = os.getenv("NAVER_CLIENT_SECRET")
-
-    return naver_client_id, naver_client_secret
+# 환경 변수 확인
+naver_client_id = os.getenv("NAVER_CLIENT_ID")
+naver_client_secret = os.getenv("NAVER_CLIENT_SECRET")
 
 
 # 세션에서 URL 파라미터를 가져오는 함수 (비동기 처리를 위해 별도로 분리)
