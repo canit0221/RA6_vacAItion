@@ -277,11 +277,13 @@ main {
 }
 
 .bot .message-content a {
-    color: #0077b6;
-    text-decoration: none;
+    color: #ff6f00;
+    text-decoration: underline;
+    transition: color 0.2s;
 }
 
 .bot .message-content a:hover {
+    color: #ff9d45;
     text-decoration: underline;
 }
 
@@ -391,23 +393,28 @@ main {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: auto;
+    height: 22px;
     border: none;
-    border-radius: 50%;
+    border-radius: 12px;
     background-color: #ff6f00;
     color: white;
-    font-weight: bold;
+    font-weight: 500;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 12px;
     margin-left: 6px;
+    padding: 0 8px;
     transition: all 0.2s ease;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+    vertical-align: middle;
+    margin-top: 0px;
+    position: relative;
+    top: -2px;
 }
 
 .add-to-schedule-btn:hover {
     background-color: #ff9100;
-    transform: scale(1.1);
+    transform: scale(1.05);
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
 }
 

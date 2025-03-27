@@ -43,9 +43,24 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # URL 파라미터에서 정보 추출 (더 두드러지게 로깅)
             date_param = query_params.get("date", [None])[0]
+            schedule_id_param = query_params.get("schedule_id", [None])[0]  # 일정 ID 추가
 
             print("\n=== WebSocket 연결 시작 ===")
             print(f"연결 URL 쿼리 문자열: {query_string}")
+
+            # 일정 ID 처리 (우선적으로 처리)
+            if schedule_id_param:
+                try:
+                    schedule_id = int(schedule_id_param)
+                    print(f"✅ URL에서 일정 ID 파라미터 성공적으로 추출: {schedule_id}")
+                    # 나중에 사용하기 위해 인스턴스 변수로 저장
+                    self.schedule_id = schedule_id
+                except ValueError:
+                    print(f"❌ 일정 ID 형식 오류: {schedule_id_param}은 유효한 정수가 아닙니다")
+                except Exception as e:
+                    print(f"❌ schedule_id 파라미터 처리 중 오류: {e}")
+            else:
+                print("❌ URL에 schedule_id 파라미터가 없습니다")
 
             if date_param:
                 try:
@@ -116,7 +131,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 session = await self.get_or_create_session(self.room_name, date_param)
 
                 # URL 파라미터 정보를 세션에 저장 (더 명확하게 로깅)
-                if date_param:
+                if date_param or schedule_id_param:
                     # URL 파라미터를 업데이트 또는 초기화
                     url_params = {}
                     if hasattr(session, "url_params") and session.url_params:
@@ -129,17 +144,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
                                 url_params = {}
 
                     # date 파라미터 추가
-                    url_params["date"] = date_param
+                    if date_param:
+                        url_params["date"] = date_param
 
-                    # 세션의 date 필드 업데이트
-                    try:
-                        from datetime import datetime
+                        # 세션의 date 필드 업데이트
+                        try:
+                            from datetime import datetime
 
-                        session_date = datetime.strptime(date_param, "%Y-%m-%d").date()
-                        session.date = session_date
-                        print(f"✅ 세션 {self.room_name}에 날짜 저장됨: {session_date}")
-                    except Exception as e:
-                        print(f"❌ 날짜 변환 중 오류: {e}")
+                            session_date = datetime.strptime(date_param, "%Y-%m-%d").date()
+                            session.date = session_date
+                            print(f"✅ 세션 {self.room_name}에 날짜 저장됨: {session_date}")
+                        except Exception as e:
+                            print(f"❌ 날짜 변환 중 오류: {e}")
+                    
+                    # schedule_id 파라미터 추가
+                    if schedule_id_param:
+                        try:
+                            schedule_id = int(schedule_id_param)
+                            url_params["schedule_id"] = schedule_id
+                            print(f"✅ 세션 {self.room_name}에 일정 ID 저장됨: {schedule_id}")
+                        except Exception as e:
+                            print(f"❌ 일정 ID 저장 중 오류: {e}")
 
                     # URL 파라미터 저장
                     session.url_params = url_params
@@ -301,8 +326,44 @@ class ChatConsumer(AsyncWebsocketConsumer):
             schedule_companion = None
 
             try:
-                # 세션에서 날짜 정보 가져오기 (단순화된 로직)
-                session_date = None
+                # 일정 ID가 있는 경우 먼저 ID로 조회 시도
+                if hasattr(self, "schedule_id"):
+                    try:
+                        # calendar_app의 Schedule 모델 가져오기
+                        Schedule = apps.get_model("calendar_app", "Schedule")
+                        
+                        # ID로 일정 조회
+                        user_schedule = await database_sync_to_async(
+                            lambda: Schedule.objects.filter(
+                                user=self.user, id=self.schedule_id
+                            ).first()
+                        )()
+                        
+                        if user_schedule:
+                            print(f"✅ 일정 ID({self.schedule_id})로 일정 정보를 성공적으로 조회했습니다.")
+                            
+                            # 일정 데이터 추출
+                            if hasattr(user_schedule, "location") and user_schedule.location:
+                                schedule_place = user_schedule.location
+                                print(f"✅ 일정 ID에서 장소 정보 가져옴: '{schedule_place}'")
+                                
+                            if hasattr(user_schedule, "companion") and user_schedule.companion:
+                                schedule_companion = user_schedule.companion
+                                print(f"✅ 일정 ID에서 동행자 정보 가져옴: '{schedule_companion}'")
+                                
+                            # 세션 날짜 업데이트
+                            if hasattr(user_schedule, "date") and user_schedule.date:
+                                self.session_date = user_schedule.date
+                                print(f"✅ 일정 ID에서 날짜 정보 업데이트: {self.session_date}")
+                        else:
+                            print(f"⚠️ ID {self.schedule_id}에 해당하는 일정을 찾을 수 없습니다.")
+                    except Exception as e:
+                        print(f"❌ 일정 ID 기반 조회 중 오류 발생: {str(e)}")
+                
+                # 일정 ID로 조회에 실패한 경우 날짜로 시도
+                if not schedule_place and not schedule_companion:
+                    # 날짜 데이터 준비
+                    session_date = None
 
                 # 1. 세션 객체에서 date 필드 가져오기 (가장 우선순위)
                 try:
