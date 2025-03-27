@@ -1358,9 +1358,8 @@ function checkAndAddButtonListeners() {
             button.onclick = function(event) {
                 event.stopPropagation();
                 
-                // parentElement에서 장소명 추출
-                const placeElement = button.parentElement;
-                const placeName = placeElement.textContent.replace('+', '').trim();
+                // dataset에서 장소명 직접 가져오기
+                const placeName = button.dataset.placeName;
                 
                 console.log(`+ 버튼 클릭됨! 장소명: "${placeName}"`);
                 displaySystemMessage(`"${placeName}" 장소를 일정에 추가하려고 시도 중...`);
