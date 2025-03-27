@@ -181,8 +181,6 @@ def response_generator(state: GraphState) -> GraphState:
 
             ===== 추천 장소 =====
 
-            [네이버 지도 기반 추천]
-
             1️⃣ <b>[장소명]</b>
             📍 위치: [상세 주소]
             🏷️ 분류: [카테고리]
@@ -200,8 +198,6 @@ def response_generator(state: GraphState) -> GraphState:
             🏷️ 분류: [카테고리]
             💫 추천 이유: [간단한 이유]
             🔍 참고: [제공된 URL - URL이 없으면 "정보 없음"]
-
-            [데이터베이스 기반 추천]
 
             4️⃣ <b>[장소명]</b>
             📍 위치: [상세 주소 - 정보가 없으면 장소명을 기반으로 유추]
