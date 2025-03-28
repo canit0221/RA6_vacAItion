@@ -227,8 +227,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # 시스템 프롬프트와 사용자 메시지 설정
             system_prompt = """
-            당신은 메시지 분류기입니다. 메시지가 여행, 장소 추천, 관광지, 여행 계획, 
-            휴가 장소, 방문할 곳, 관광, 여행지 등 장소 질문이나 추천에 관련된 내용인지 
+            당신은 메시지 분류기입니다. 메시지가 일정 추천, 여행, 장소 추천, 관광지, 여행 계획, 
+            휴가 장소, 방문할 곳, 관광, 여행지 등 장소 질문이나 일정추천에 관련된 내용인지 
             판별해주세요. 판별 결과는 'yes' 또는 'no'로만 답변하세요.
             """
 
@@ -304,7 +304,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     self.room_group_name,
                     {
                         "type": "chat_message",
-                        "message": "죄송합니다. 저는 장소 추천에만 특화되어 있습니다. 지역 및 장소 관한 질문을 해주세요.",
+                        "message": "죄송합니다. 저는 장소 추천에만 특화되어 있습니다. 지역 및 장소에 대한 질문을 해주세요.",
                         "is_bot": True,
                         "session_id": str(session.id),
                     },
