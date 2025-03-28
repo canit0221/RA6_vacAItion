@@ -130,6 +130,7 @@
                     localStorage.setItem('access_token', data.access);
                     localStorage.setItem('refresh_token', data.refresh);
                     localStorage.setItem('username', data.username);
+                    localStorage.setItem('is_social_login', 'true'); // 구글 로그인임을 표시
                     
                     // 메인 페이지로 이동
                     window.location.href = '../index.html';

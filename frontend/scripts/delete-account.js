@@ -43,13 +43,11 @@ function checkLoginStatus() {
 // 구글 로그인 사용자인지 확인하는 함수
 function checkSocialLoginUser() {
     const isSocialLogin = localStorage.getItem('is_social_login') === 'true';
-    const passwordField = document.getElementById('password');
-    const passwordLabel = document.querySelector('label[for="password"]');
+    const passwordGroup = document.getElementById('passwordGroup');
     
-    if (isSocialLogin && passwordField && passwordLabel) {
+    if (isSocialLogin && passwordGroup) {
         // 구글 로그인 사용자인 경우 비밀번호 필드 숨김 처리
-        passwordField.style.display = 'none';
-        passwordLabel.style.display = 'none';
+        passwordGroup.classList.add('hidden');
     }
 }
 
