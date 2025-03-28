@@ -561,6 +561,15 @@ class UserDetailView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # 소셜 계정 정보를 먼저 확인하여 삭제 (외래 키 제약조건)
+        try:
+            social_account = SocialAccount.objects.get(user=user)
+            social_account.delete()
+        except SocialAccount.DoesNotExist:
+            # 소셜 계정이 아닌 경우 무시
+            pass
+
+        # 사용자 계정 삭제
         user.delete()
 
         return Response(
