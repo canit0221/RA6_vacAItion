@@ -145,7 +145,7 @@ main {
 }
 
 .message {
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     max-width: 80%;
     display: flex;
 }
@@ -171,6 +171,11 @@ main {
     min-width: 100px;
 }
 
+/* 첫 번째 웰컴 메시지에만 적용되는 스타일 */
+#chatMessages > div:first-child .message-content {
+    padding: 0 0 5px 5px;
+}
+
 .user .message-content {
     background-color: #87CEEB;
     color: white;
@@ -182,7 +187,7 @@ main {
     background-color: #f0f0f0;
     color: #333;
     border-top-left-radius: 0;
-    line-height: 1.5;
+    line-height: 1.4;
     white-space: pre-wrap;
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -202,7 +207,9 @@ main {
 
 .message-content p {
     margin: 0;
+    padding: 0;
     white-space: pre-wrap;
+    display: inline-block;
 }
 
 /* 스트리밍 메시지 스타일 */

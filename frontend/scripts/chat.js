@@ -481,10 +481,48 @@ function displayChatMessages(messages) {
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) return;
     
+    // 초기 안내 메시지를 보존하기 위해 처음 메시지를 저장
+    const welcomeMessage = chatMessages.querySelector('.message.bot:first-child');
+    
     chatMessages.innerHTML = '';
     
+    // 초기 안내 메시지가 있었다면 다시 추가
+    if (welcomeMessage) {
+        chatMessages.appendChild(welcomeMessage);
+    } else {
+        // 첫 로드 시에만 환영 메시지 생성 (HTML에서 정의된 형식 사용)
+        const initialMessageDiv = document.createElement('div');
+        initialMessageDiv.className = 'message bot';
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        
+        // 초기 안내 메시지 내용
+        contentDiv.innerHTML = `<p>안녕하세요! 휴일 계획을 도와드릴 Hue입니다. 어떤 장소를 추천드릴까요?
+다음과 같이 물어보세요!🙋
+
+1. 테마 기반 추천 질문하기
+    - 분위기 좋은 맛집 추천해줘
+    - 예쁜 카페 추천해줘
+
+2. 장소 기반으로 추천받기(일정을 생성하지 않은 경우)
+    - 성수동에서 분위기 좋은 카페 추천해줘
+    - 홍대 맛집 추천해줘
+
+3. 기본적으로 사용자가 작성한 일정에 따라서 추천받기(장소, 동행 자동 포함)
+    - 카페 추천해줘
+    - 맛집 추천해줘
+    - 전시회 추천해줘
+
+4. 이외의 질문들
+    - 죄송합니다. 저는 장소 추천에만 특화되어 있습니다. 지역 및 장소에 대한 질문을 해주세요.</p>`;
+        
+        initialMessageDiv.appendChild(contentDiv);
+        chatMessages.appendChild(initialMessageDiv);
+    }
+    
     if (messages.length === 0) {
-        // 첫 메시지가 없을 때는 빈 채팅방으로 시작
+        // 서버에서 받은 메시지가 없을 때는 여기서 종료
         return;
     }
     
