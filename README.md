@@ -81,10 +81,76 @@
 
 ---
 
+## 💻 설치 및 실행 방법
+1. 저장소 Clone하기
+```bash
+git clone https://github.com/Kkimminseo/RA6_vacAItion.git
+```
+
+2. 환경 변수 설정<br>
+* `.env` 파일을 생성하여 환경 변수 설정
+```bash
+DJANGO_SECRET_KEY = your_django_secret_key
+OPENAI_API_KEY = your_openai_key
+NAVER_CLIENT_ID = your_client_id
+NAVER_CLIENT_SECRET = your_secret_key
+GOOGLE_CLIENT_ID = your_client_id
+GOOGLE_CLIENT_SECRET = your_secret_key
+
+
+# Database settings
+DB_ENGINE=django.db.backends.postgresql
+DB_NAME=yourdb_name
+DB_USER=yourdb_user
+DB_PASSWORD=yourdb_password
+DB_HOST=localhost
+DB_PORT=5432
+POSTGRES_USER=yourdb_user
+POSTGRES_PASSWORD=yourdb_password
+POSTGRES_DB=yourdb_name
+
+
+# SMTP 이메일 설정
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your@emaill.address
+EMAIL_HOST_PASSWORD=yourpassword
+DEFAULT_FROM_EMAIL=your@emaill.address
+```
+3. 벡터스토어 저장<br>
+* /backend/data/db/vectorstore 와 /backend/data/eventdb/vectorstore 디렉토리에 `index.faiss`, `index.pkl` 파일 저장
+```bash
+.
+├── backend
+│   ├── data
+│   │   ├── db
+│   │   │   └── vectorstore -index.faiss,index.pkl
+│   │   ├── event_db
+│   │   │   └── vectorstore -index.faiss,index.pkl
+```
+
+5. 프로젝트 디렉토리로 이동
+```bash
+cd backend
+```
+
+5. 의존성 설치 및 서버 실행(Docker 기반)
+```bash
+docker-compose up -d --build
+```
+
+6. PostgreSQL에 db 임포트<br>
+  * chatbot_event, chatbot_naverblog, chatbot_naverblog 테이블에 csv 임포트
+
+8. 서비스 실행 및 접속
+- `http://localhost:8000` 접속
+
+---
+
 ## 🚨 트러블슈팅
 - [상세 내용은 여기를 클릭하세요.](https://www.notion.so/1b4a0d2750d0807e8532f081a546be61?pvs=21)
 
 ---
 
 📌 지속적으로 서비스 기능을 개선하고 있습니다. 더 좋은 휴일을 위해 vacAItion과 함께 하세요!
-
