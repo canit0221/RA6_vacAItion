@@ -1,4 +1,4 @@
-![스크린샷 2025-03-27 140107.png](attachment:b34794a6-c3d3-4d5f-bc91-6655384e5bb3:스크린샷_2025-03-27_140107.png)
+![Image](https://github.com/user-attachments/assets/61796c5f-40bf-4aba-b315-8c697b8f1ea1)
 # 🦾 AI가 찾아주는 완벽한 휴일 - **vacAItion**
 
 ---
