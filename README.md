@@ -9,6 +9,7 @@
 데이트, 친구 모임, 가족 나들이 등 다양한 상황에 맞춘 맞춤형 추천을 제공하며, 최신 전시회, 공연, 축제 정보를 주기적으로 반영합니다.
 
 ### 🔗 서비스 접속: https://ra6vacaition.vercel.app/
+### 🔗 시연 영상: https://www.youtube.com/watch?v=06y_Mj5P1eY
 ---
 
 ## 🚩 기획 의도 및 배경
